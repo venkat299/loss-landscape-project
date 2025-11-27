@@ -1,0 +1,5 @@
+{
+  "epsilon": 0.01,
+  "num_samples": 32,
+  "sharpness": 6.566457159351557e-05
+}
