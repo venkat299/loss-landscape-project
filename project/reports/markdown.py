@@ -284,6 +284,97 @@ def _load_connectivity_stats(figures_root: Path) -> Dict[str, Dict[str, object]]
     return stats
 
 
+def _load_regularization_groups(
+    experiments_root: Path,
+    figures_root: Path,
+) -> Dict[str, Dict[str, object]]:
+    """
+    Load regularization study groups from experiments and figures roots.
+
+    This groups runs by (dataset, architecture, activation, optimizer)
+    and collects distinct weight decay values for each group. Only groups
+    that have:
+
+        - more than one unique weight decay value, and
+        - a corresponding regularization interpolation surface figure
+
+    are returned.
+
+    Args:
+        experiments_root (Path): Root directory containing experiment runs.
+        figures_root (Path): Root directory containing generated figures.
+
+    Returns:
+        Dict[str, Dict[str, object]]: Mapping from a configuration key to
+        metadata and a list of weight decay values.
+    """
+    groups: Dict[str, Dict[str, object]] = {}
+
+    if not experiments_root.exists():
+        return groups
+
+    for summary_path in experiments_root.rglob("summary.json"):
+        with summary_path.open("r", encoding="utf-8") as f_sum:
+            summary_list = json.load(f_sum)
+        if not summary_list:
+            continue
+        summary = summary_list[0]
+
+        dataset = summary["dataset"]["name"]
+        hidden_layers = int(summary["model"]["hidden_layers"])
+        hidden_size = int(summary["model"]["hidden_size"])
+        activation = summary["model"]["activation"]
+        optimizer = summary["training"]["optimizer"]
+        weight_decay = float(summary["training"]["weight_decay"])
+
+        architecture = f"{hidden_layers}x{hidden_size}"
+
+        key = "|".join([dataset, architecture, activation, optimizer])
+        entry = groups.setdefault(
+            key,
+            {
+                "dataset": dataset,
+                "architecture": architecture,
+                "activation": activation,
+                "optimizer": optimizer,
+                "weight_decays": [],
+            },
+        )
+
+        weight_list: List[float] = entry["weight_decays"]  # type: ignore[assignment]
+        if weight_decay not in weight_list:
+            weight_list.append(weight_decay)
+
+    # Filter groups to those with multiple weight decays and existing figures.
+    filtered: Dict[str, Dict[str, object]] = {}
+    for key, entry in groups.items():
+        dataset = entry["dataset"]  # type: ignore[assignment]
+        architecture = entry["architecture"]  # type: ignore[assignment]
+        activation = entry["activation"]  # type: ignore[assignment]
+        optimizer = entry["optimizer"]  # type: ignore[assignment]
+        weight_decays = sorted(entry["weight_decays"])  # type: ignore[arg-type]
+
+        if len(weight_decays) <= 1:
+            continue
+
+        fig_dir = (
+            figures_root
+            / f"dataset={dataset}"
+            / f"arch={architecture}"
+            / f"act={activation}"
+            / f"opt={optimizer}"
+            / "regularization"
+        )
+        surface_path = fig_dir / "regularization_interp_surface.png"
+        if not surface_path.exists():
+            continue
+
+        entry["weight_decays"] = weight_decays  # type: ignore[assignment]
+        filtered[key] = entry
+
+    return filtered
+
+
 def _study_report_template(
     title: str,
     description: str,
@@ -355,6 +446,7 @@ def generate_study_reports(
         - ``activation_study.md``
         - ``optimizer_study.md``
         - ``connectivity_study.md`` (aggregated connectivity statistics)
+        - ``regularization_study.md`` (weight decay vs. landscape summary)
 
     Args:
         experiments_root (Path): Root directory containing experiment runs.
@@ -377,6 +469,10 @@ def generate_study_reports(
         _write_report(
             reports_root / "connectivity_study.md",
             "_No connectivity experiments were found._",
+        )
+        _write_report(
+            reports_root / "regularization_study.md",
+            "_No regularization experiments were found._",
         )
         return
 
@@ -460,47 +556,109 @@ def generate_study_reports(
             "`reports/figures/.../connectivity/*/barriers.json`._"
         )
         _write_report(reports_root / "connectivity_study.md", "\n".join(connectivity_lines))
+    else:
+        connectivity_lines.append("## Connectivity summary")
+        connectivity_lines.append("")
+        connectivity_lines.append(
+            "| Dataset | Architecture | Activation | Optimizer | "
+            "Num Pairs | Mean Train Barrier | Mean Test Barrier | "
+            "Max Train Barrier | Max Test Barrier |"
+        )
+        connectivity_lines.append(
+            "| ------- | ------------ | ---------- | --------- | "
+            "--------- | ------------------- | ------------------ | "
+            "------------------- | ------------------ |"
+        )
+
+        for key in sorted(connectivity_stats.keys()):
+            entry = connectivity_stats[key]
+            dataset = entry["dataset"]  # type: ignore[assignment]
+            arch = entry["architecture"]  # type: ignore[assignment]
+            activation = entry["activation"]  # type: ignore[assignment]
+            optimizer = entry["optimizer"]  # type: ignore[assignment]
+            train_vals: List[float] = entry["train_barriers"]  # type: ignore[assignment]
+            test_vals: List[float] = entry["test_barriers"]  # type: ignore[assignment]
+
+            if train_vals and test_vals:
+                num_pairs = len(train_vals)
+                mean_train = _mean(train_vals)
+                mean_test = _mean(test_vals)
+                max_train = max(train_vals)
+                max_test = max(test_vals)
+            else:
+                num_pairs = 0
+                mean_train = 0.0
+                mean_test = 0.0
+                max_train = 0.0
+                max_test = 0.0
+
+            connectivity_lines.append(
+                f"| {dataset} | {arch} | {activation} | {optimizer} | "
+                f"{num_pairs} | {mean_train:.4f} | {mean_test:.4f} | "
+                f"{max_train:.4f} | {max_test:.4f} |"
+            )
+
+        _write_report(reports_root / "connectivity_study.md", "\n".join(connectivity_lines))
+
+    # Regularization study.
+    regularization_stats = _load_regularization_groups(experiments_root, figures_root)
+
+    regularization_lines: List[str] = []
+    regularization_lines.append("# Regularization Study")
+    regularization_lines.append("")
+    regularization_lines.append("## Overview")
+    regularization_lines.append("")
+    regularization_lines.append(
+        "This report summarizes how the loss landscape changes as a "
+        "function of L2 weight decay, both along the initial-to-final "
+        "interpolation path and in 2D random directions around the "
+        "final solution. For each configuration with multiple weight "
+        "decay values and generated surfaces, we link to the "
+        "corresponding 3D figures under "
+        "`reports/figures/.../regularization/`."
+    )
+    regularization_lines.append("")
+
+    if not regularization_stats:
+        regularization_lines.append(
+            "_No regularization interpolation surfaces were found. "
+            "Ensure the probe script has been run after training models "
+            "with multiple distinct weight decay values._"
+        )
+        _write_report(reports_root / "regularization_study.md", "\n".join(regularization_lines))
         return
 
-    connectivity_lines.append("## Connectivity summary")
-    connectivity_lines.append("")
-    connectivity_lines.append(
-        "| Dataset | Architecture | Activation | Optimizer | "
-        "Num Pairs | Mean Train Barrier | Mean Test Barrier | "
-        "Max Train Barrier | Max Test Barrier |"
+    regularization_lines.append("## Configurations")
+    regularization_lines.append("")
+    regularization_lines.append(
+        "| Dataset | Architecture | Activation | Optimizer | Weight Decays | Interp Surface | Slice Surface (wd0) |"
     )
-    connectivity_lines.append(
-        "| ------- | ------------ | ---------- | --------- | "
-        "--------- | ------------------- | ------------------ | "
-        "------------------- | ------------------ |"
+    regularization_lines.append(
+        "| ------- | ------------ | ---------- | --------- | ------------- | -------------- | ------------------- |"
     )
 
-    for key in sorted(connectivity_stats.keys()):
-        entry = connectivity_stats[key]
+    for key in sorted(regularization_stats.keys()):
+        entry = regularization_stats[key]
         dataset = entry["dataset"]  # type: ignore[assignment]
         arch = entry["architecture"]  # type: ignore[assignment]
         activation = entry["activation"]  # type: ignore[assignment]
         optimizer = entry["optimizer"]  # type: ignore[assignment]
-        train_vals: List[float] = entry["train_barriers"]  # type: ignore[assignment]
-        test_vals: List[float] = entry["test_barriers"]  # type: ignore[assignment]
+        weight_decays: List[float] = entry["weight_decays"]  # type: ignore[assignment]
 
-        if train_vals and test_vals:
-            num_pairs = len(train_vals)
-            mean_train = _mean(train_vals)
-            mean_test = _mean(test_vals)
-            max_train = max(train_vals)
-            max_test = max(test_vals)
-        else:
-            num_pairs = 0
-            mean_train = 0.0
-            mean_test = 0.0
-            max_train = 0.0
-            max_test = 0.0
-
-        connectivity_lines.append(
-            f"| {dataset} | {arch} | {activation} | {optimizer} | "
-            f"{num_pairs} | {mean_train:.4f} | {mean_test:.4f} | "
-            f"{max_train:.4f} | {max_test:.4f} |"
+        interp_rel = (
+            f"figures/dataset={dataset}/arch={arch}/act={activation}/"
+            f"opt={optimizer}/regularization/regularization_interp_surface.png"
+        )
+        slice_rel = (
+            f"figures/dataset={dataset}/arch={arch}/act={activation}/"
+            f"opt={optimizer}/regularization/regularization_slice_wd0_surface.png"
         )
 
-    _write_report(reports_root / "connectivity_study.md", "\n".join(connectivity_lines))
+        wd_str = ", ".join(f"{wd:.1e}" for wd in weight_decays)
+
+        regularization_lines.append(
+            f"| {dataset} | {arch} | {activation} | {optimizer} | "
+            f"{wd_str} | ![]({interp_rel}) | ![]({slice_rel}) |"
+        )
+
+    _write_report(reports_root / "regularization_study.md", "\n".join(regularization_lines))

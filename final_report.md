@@ -13,7 +13,20 @@ Concretely, the pipeline:
 - probes the loss landscape around trained solutions using interpolation, random directional slices, Hessian spectrum estimation, sharpness metrics, PCA-based projections, and mode connectivity analysis;
 - generates figures under `reports/figures/` and Markdown summaries under `reports/`.
 
-This report is intended as a **single final submission** document. The main body provides a narrative overview and key findings; full detailed tables are collected in **Appendix A–F** for reference.
+This report is intended as a **single final submission** document. The main body provides a narrative overview and key findings; full detailed tables are collected in **Appendix A–G** for reference.
+
+### Key Findings at a Glance
+
+| Axis | Key Finding | Evidence (Sections / Reports) |
+| ---- | ----------- | ----------------------------- |
+| Datasets (moons, circles, gaussians, xor) | All tasks are solvable with high accuracy by over-parameterized MLPs; circles/gaussians are easiest, XOR is most sensitive to architecture/activation. | §3.1, §3.6; `summary.md`, `connectivity_study.md` |
+| Depth | Deeper networks (2–4 layers) achieve slightly better average test accuracy and smoother connectivity than very shallow ones. | §3.2; Appendix C (`depth_study.md`) |
+| Width | Moderate width (100 units) outperforms very narrow (50) and very wide (500) models on average, suggesting a “just enough capacity” sweet spot. | §3.2; Appendix D (`width_study.md`) |
+| Activation | ReLU and GELU consistently outperform Tanh in both performance and landscape smoothness; Tanh solutions tend to be sharper and have higher connectivity barriers. | §3.3, §4; Appendix D (`activation_study.md`), `connectivity_study.md` |
+| Optimizer | Adam dominates SGD on these small synthetic tasks, reaching lower loss and slightly better accuracy, especially for Tanh; SGD solutions are often slightly sharper. | §3.1, §5–6; Appendix E (`optimizer_study.md`), Hessian/sharpness figures |
+| Regularization (weight decay) | Moving from 0 to modest L2 (≈1e‑3) only mildly changes test accuracy but noticeably reshapes local geometry, smoothing interpolation and random-slice surfaces around some solutions. | §3.1, §4.3; Appendix G (`regularization_study.md`) |
+| Landscape geometry | Well-trained models typically lie in broad valleys with low barriers between seeds (especially ReLU/GELU + Adam); underperforming Tanh configs show sharper, more irregular basins. | §4, §5–6; `connectivity_study.md`, Hessian and sharpness plots |
+| CNN & residual MLP | ConvNet and residual MLP probes show interpolation/slice shapes very similar to deep MLPs, confirming that the qualitative landscape picture extends beyond plain fully connected nets. | §2.2, §4.4; `run_cnn_resnet_example.py` figures |
 
 ---
 
@@ -36,7 +49,7 @@ All models are fully-connected MLP classifiers implemented in `project/models/ml
 - He (Kaiming) initialization for ReLU/GELU, Xavier for Tanh,
 - output layer is a linear classifier mapping to 2 logits.
 
-Predefined architecture variants (from `get_predefined_model_config`) are:
+Predefined MLP architecture variants (from `get_predefined_model_config`) are:
 - `shallow-small`: 1 hidden layer × 50 units (1×50),
 - `shallow-wide`: 1 hidden layer × 500 units (1×500),
 - `deep-small`: 4 hidden layers × 100 units (4×100),
@@ -44,6 +57,12 @@ Predefined architecture variants (from `get_predefined_model_config`) are:
 - `medium`: 2 hidden layers × 100 units (2×100).
 
 These cover the 20k–100k parameter regime specified in the project tasks.
+
+In addition to these MLPs, the codebase includes two demonstration architectures in `project/models`:
+- `ConvNetClassifier` (with `CNNConfig`) in `cnn.py`, a small convolutional classifier that operates on 2D inputs reshaped into images.
+- `ResidualMLPClassifier` (with `ResidualMLPConfig`) in `resnet.py`, an MLP-style network with residual blocks.
+
+These models are exercised in `project/experiments/run_cnn_resnet_example.py` to show that the same training and landscape-probing stack applies beyond plain MLPs. They are not part of the main full-matrix sweep summarized in this report, but use the same loss, optimizers, and probes.
 
 ### 2.3 Optimization and Training
 
@@ -72,7 +91,7 @@ uv run python -m project.experiments.run_full_matrix \
 
 ## 3. Model Performance Summary
 
-The auto-generated `reports/summary.md` and `reports/*_study.md` files summarize final test performance for each configuration. Here we highlight a few key trends on the moons dataset; complete tables are in **Appendix A–E**.
+The auto-generated `reports/summary.md` and `reports/*_study.md` files summarize final test performance for each configuration. Here we highlight a few key trends on the moons dataset and other synthetic tasks; complete tables are in **Appendix A–G**.
 
 ### 3.1 Overall accuracy and optimizer effects
 
@@ -85,6 +104,8 @@ From the optimizer study (see Appendix E):
 - Mean test accuracy for **SGD**: ≈ **0.9605** with mean test loss ≈ **0.1016**.
 
 On this problem and with the chosen hyperparameters, Adam is consistently closer to interpolating the dataset, while SGD sometimes converges to slightly less optimal solutions (especially when coupled with Tanh).
+
+To isolate the effect of explicit L2 regularization, we also train a subset of architectures with multiple weight-decay values and generate interpolation and random-slice loss surfaces over `(alpha, weight_decay)` and `(alpha, beta, weight_decay)`. These regularization-sensitive landscapes are summarized in `reports/regularization_study.md` and Appendix G.
 
 ### 3.2 Depth and width effects
 
@@ -152,6 +173,34 @@ Our results align with these expectations:
 - ReLU/GELU activations outperform Tanh, matching standard discussions that saturating activations can make optimization harder and lead to sharper, narrower valleys.
 - Unlike some large-scale results where SGD can generalize better than Adam, on this small moons problem Adam dominates. This is still compatible with prior work: it stresses that optimizer comparisons are highly regime-dependent, and that adaptive methods can excel when the task is simple and regularization is implicit in the architecture and data.
 
+### 3.6 Other synthetic datasets: circles, Gaussians, XOR
+
+While the narrative above focuses on moons, the full experiment matrix also covers concentric circles, Gaussian mixtures, and XOR-like data. A few patterns emerge:
+
+- **Circles and Gaussians are often easier than moons** for deep ReLU/GELU MLPs: many 4×250 and 4×100 configurations reach essentially zero train and test loss with both Adam and SGD (see `reports/summary.md` and `reports/optimizer_study.md`), with accuracies at or very close to 1.0. The corresponding connectivity statistics in `reports/connectivity_study.md` show mean barriers near zero for these cases, indicating wide, smoothly connected basins.
+- **Tanh networks on circles/Gaussians** behave similarly to moons: they eventually fit well under Adam but exhibit larger connectivity barriers and somewhat higher test loss under SGD, reflecting sharper valleys and more challenging optimization in saturating regimes.
+- **XOR is the most sensitive to architecture and activation**: shallow and narrow tanh models under SGD can struggle, but deep/wide ReLU/GELU MLPs with Adam (e.g. 4×250) achieve near-perfect accuracy. Connectivity barriers for XOR are generally higher than for moons/circles/gaussians, especially for deeper Tanh models, suggesting more fragmented low-loss regions.
+
+Overall, across all synthetic datasets, the qualitative trends are consistent: depth and non-saturating activations enlarge flat basins and reduce barriers, while Tanh and underparameterized configurations tend to exhibit sharper, more irregular landscapes.
+
+To visualize these cross-dataset differences, it is helpful to compare PCA-plane loss surfaces and random slices for a fixed architecture/activation/optimizer:
+
+- **PCA loss surface — circles vs. gaussians vs. xor, 4x250 Tanh SGD**
+
+  - Circles:
+
+    ![PCA loss surface — circles 4x250 Tanh SGD](reports/figures/dataset=circles/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
+
+  - Gaussians:
+
+    ![PCA loss surface — gaussians 4x250 Tanh SGD](reports/figures/dataset=gaussians/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
+
+  - XOR:
+
+    ![PCA loss surface — xor 4x250 Tanh SGD](reports/figures/dataset=xor/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
+
+In these examples, circles and gaussians exhibit relatively smooth, wide basins around the final solution, whereas XOR tends to show more pronounced ridges and localized curvature, consistent with the performance and connectivity statistics discussed above.
+
 ---
 
 ## 4. Landscape Visualizations
@@ -213,6 +262,74 @@ Qualitatively, our figures are consistent with this picture:
 - Interpolation curves from initialization to final weights are typically monotonic and do not exhibit large unexpected bumps, supporting the view that gradient-based training follows relatively smooth directions downhill.
 - PCA surfaces for high-performing configurations show extended low-loss regions around the final solution, not isolated sharp pits, in line with the “broad basin” interpretation.
 - Random 2D slices around well-trained models often exhibit gently rising loss away from the center, with occasional steeper directions, matching the literature’s description of skewed curvature: a handful of stiff directions embedded in many nearly-flat ones.
+
+### 4.3 Regularization-sensitive landscapes
+
+The regularization sweep compares loss landscapes for the same dataset/architecture/activation/optimizer under multiple L2 weight-decay values. For each configuration we evaluate:
+
+- **Interpolation surfaces** over `(alpha, weight_decay)` between initialization and final weights.
+- **2D random-slice surfaces** over `(alpha, beta, weight_decay)` around the final solution.
+
+The regularization study (`reports/regularization_study.md`, Appendix G) reveals several consistent behaviors:
+
+- Moving from **no weight decay to modest decay (e.g. 1e‑3)** typically:
+  - slightly increases the minimum achievable train loss along the interpolation path,
+  - smooths the curvature in random slices, with loss rising more gradually away from the final point.
+- For architectures that already interpolate the data cleanly (e.g. deep ReLU/GELU MLPs), weight decay mainly changes the **shape** of the basin rather than the final test accuracy: test performance remains near 1.0, but the loss surfaces become less sharp near the solution.
+- For more fragile configurations (e.g. shallow Tanh + SGD), adding weight decay can either mildly stabilize the landscape (reducing extreme sharpness in some directions) or introduce additional curvature along certain axes. The 3D slices show that the impact is highly architecture- and optimizer-dependent, underscoring that regularization reshapes the nearby loss geometry in nontrivial ways even when metrics look similar.
+
+Together, these regularization-sensitive views support the intuition that L2 weight decay acts as a gentle geometric bias: it nudges optimization toward slightly broader, smoother basins without dramatically altering test accuracy on these small synthetic tasks.
+
+As concrete examples, consider a shallow and a deep configuration:
+
+- **Regularization surfaces — 1x50 GELU, Adam**
+
+  - Interpolation vs. weight decay:
+
+    ![Regularization interpolation — 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/regularization/regularization_interp_surface.png)
+
+  - 2D random slice vs. weight decay (wd0 slice shown in Appendix G):
+
+    ![Regularization random slice (wd0) — 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/regularization/regularization_slice_wd0_surface.png)
+
+- **Regularization surfaces — 4x250 Tanh, SGD**
+
+  - Interpolation vs. weight decay:
+
+    ![Regularization interpolation — 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/regularization/regularization_interp_surface.png)
+
+  - 2D random slice vs. weight decay (wd0 slice):
+
+    ![Regularization random slice (wd0) — 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/regularization/regularization_slice_wd0_surface.png)
+
+Comparing these charts shows that weight decay has a relatively mild effect on the well-behaved shallow GELU model, but a more visible impact on the sharper deep Tanh+SGD configuration, where the loss surface flattens slightly and barriers along certain directions are reduced.
+
+### 4.4 CNN and residual MLP landscape probes
+
+To check that our tools generalize beyond plain MLPs, `project/experiments/run_cnn_resnet_example.py` trains:
+
+- a small **ConvNet** on moons (2D inputs reshaped to 1×2×1 “images”), and
+- a **Residual MLP** with several residual blocks,
+
+using the same loss, optimizers, and probing utilities as for the fully-connected models.
+
+The resulting probes show:
+
+- **ConvNet interpolation** between initial and final weights has the same qualitative shape as well-trained MLPs: loss decreases smoothly along the path, with no large barriers. This suggests that the combination of convolutional structure and small dataset still yields a broad, easy-to-navigate basin.
+
+  ![CNN interpolation loss — moons ConvNet Adam](reports/figures/experiments_cnn_resnet/cnn/interpolation/cnn_interp_loss.png)
+
+- **Residual MLP random slices** resemble the deeper MLP profiles: 1D and 2D slices around the final solution exhibit a central low-loss region with moderately steep directions in a small number of axes. Residual connections do not radically change the local landscape but can make optimization more robust, as expected from skip-connection theory.
+
+  - 1D slice:
+
+    ![Residual MLP random 1D slice — moons](reports/figures/experiments_cnn_resnet/resnet/random_slice/resnet_random_1d.png)
+
+  - 2D slice:
+
+    ![Residual MLP random 2D surface — moons](reports/figures/experiments_cnn_resnet/resnet/random_slice/resnet_random_2d_surface.png)
+
+These CNN/ResNet experiments confirm that the training and probing stack applies cleanly to non-MLP architectures, and that the main qualitative conclusions about flat valleys, modest barriers, and activation/optimizer effects extend beyond the specific MLP family used in the full matrix.
 
 ---
 
@@ -622,6 +739,45 @@ Together, these extensions would further illuminate how architectural and optimi
 | moons | 4x250 | relu | sgd | 3 | 0.2100 | 0.2056 | 0.3335 | 0.3192 |
 | moons | 4x250 | tanh | adam | 3 | 1.4574 | 1.5731 | 2.0690 | 2.2866 |
 | moons | 4x250 | tanh | sgd | 3 | 0.1034 | 0.1036 | 0.1390 | 0.1415 |
+
+---
+
+## Appendix G — Regularization Study Table (from `reports/regularization_study.md`)
+
+Configurations for which we trained models with multiple L2 weight-decay values and generated regularization-sensitive interpolation and random-slice surfaces. For each configuration we list the shared dataset, architecture, activation, optimizer, and the set of weight decays used, along with direct thumbnails of the corresponding 3D interpolation and random-slice surfaces under `reports/figures/.../regularization/`.
+
+| Dataset | Architecture | Activation | Optimizer | Weight Decays | Interp Surface | Slice Surface (wd0) |
+| ------- | ------------ | ---------- | --------- | ------------- | -------------- | ------------------- |
+| moons | 1x500 | gelu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x500/act=gelu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x500/act=gelu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x500 | gelu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x500/act=gelu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x500/act=gelu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x500 | relu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x500/act=relu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x500/act=relu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x500 | relu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x500/act=relu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x500/act=relu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x500 | tanh | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x500/act=tanh/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x500/act=tanh/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x500 | tanh | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x500/act=tanh/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x500/act=tanh/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x50 | gelu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x50 | gelu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x50 | relu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x50 | relu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x50/act=relu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x50/act=relu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x50 | tanh | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x50/act=tanh/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x50/act=tanh/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 1x50 | tanh | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=1x50/act=tanh/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=1x50/act=tanh/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 2x100 | gelu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=2x100/act=gelu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=2x100/act=gelu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 2x100 | gelu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=2x100/act=gelu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=2x100/act=gelu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 2x100 | relu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=2x100/act=relu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=2x100/act=relu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 2x100 | relu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=2x100/act=relu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=2x100/act=relu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 2x100 | tanh | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=2x100/act=tanh/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=2x100/act=tanh/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 2x100 | tanh | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=2x100/act=tanh/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=2x100/act=tanh/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x100 | gelu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x100/act=gelu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x100/act=gelu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x100 | gelu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x100/act=gelu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x100/act=gelu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x100 | relu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x100/act=relu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x100/act=relu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x100 | relu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x100/act=relu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x100/act=relu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x100 | tanh | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x100/act=tanh/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x100/act=tanh/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x100 | tanh | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x100/act=tanh/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x100/act=tanh/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x250 | gelu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x250/act=gelu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x250/act=gelu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x250 | gelu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x250/act=gelu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x250/act=gelu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x250 | relu | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x250/act=relu/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x250/act=relu/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x250 | relu | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x250/act=relu/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x250/act=relu/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x250 | tanh | adam | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/regularization/regularization_slice_wd0_surface.png) |
+| moons | 4x250 | tanh | sgd | 0.0e+00, 1.0e-03 | ![](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/regularization/regularization_interp_surface.png) | ![](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/regularization/regularization_slice_wd0_surface.png) |
 
 ---
 

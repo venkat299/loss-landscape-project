@@ -22,7 +22,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from project.data import generate_moons_dataset
 from project.experiments import evaluate_model, train_model
 from project.landscape.interpolation import linear_interpolation_curve
-from project.landscape.random_slice import random_1d_loss_slice
+from project.landscape.random_slice import random_1d_loss_slice, random_2d_loss_surface
+from project.landscape.visualizations import save_interpolation_plots, save_random_slice_plots
 from project.models.cnn import CNNConfig, build_cnn_from_config
 from project.models.resnet import ResidualMLPConfig, build_resnet_from_config
 from project.utils.configs import DatasetConfig, SliceConfig, TrainingConfig
@@ -69,6 +70,8 @@ def main() -> None:
     # Training config (shared).
     base_checkpoint_dir = Path("reports/experiments_cnn_resnet")
     base_checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    figures_root = Path("reports/figures/experiments_cnn_resnet")
 
     train_cfg = TrainingConfig(
         optimizer="adam",
@@ -144,6 +147,14 @@ def main() -> None:
         float(cnn_interp["train_loss"][-1].item()),
     )
 
+    # Save CNN interpolation plots.
+    cnn_interp_dir = figures_root / "cnn" / "interpolation"
+    save_interpolation_plots(
+        results=cnn_interp,
+        output_dir=cnn_interp_dir,
+        prefix="cnn_interp",
+    )
+
     # 2) Train Residual MLP
     resnet_cfg = ResidualMLPConfig(input_dim=2, hidden_dim=64, num_blocks=3, num_classes=2)
     resnet_model = build_resnet_from_config(resnet_cfg)
@@ -159,23 +170,42 @@ def main() -> None:
         checkpoint_epochs=[],
     )
 
-    # Run a 1D random slice around the residual MLP solution.
+    # Run random slices around the residual MLP solution.
     resnet_train_loader, resnet_test_loader = _make_loaders_from_tensors(
         x_train, y_train, x_test, y_test, batch_size=256
     )
-    slice_cfg = SliceConfig(num_points=41, radius=0.5)
-    slice_result = random_1d_loss_slice(
+    slice_cfg_1d = SliceConfig(num_points=41, radius=0.5)
+    slice_cfg_2d = SliceConfig(num_points=41, radius=0.5)
+
+    slice_1d = random_1d_loss_slice(
         model=resnet_model,
         train_loader=resnet_train_loader,
         test_loader=resnet_test_loader,
-        config=slice_cfg,
+        config=slice_cfg_1d,
         device=device,
         seed=0,
     )
+    slice_2d = random_2d_loss_surface(
+        model=resnet_model,
+        train_loader=resnet_train_loader,
+        test_loader=resnet_test_loader,
+        config=slice_cfg_2d,
+        device=device,
+        seed=1,
+    )
+
+    resnet_slice_dir = figures_root / "resnet" / "random_slice"
+    save_random_slice_plots(
+        slice_1d=slice_1d,
+        slice_2d=slice_2d,
+        output_dir=resnet_slice_dir,
+        prefix="resnet_random",
+    )
+
     logger.info(
         "Residual MLP 1D slice: min_train_loss=%.4f, max_train_loss=%.4f",
-        float(slice_result["train_loss"].min().item()),
-        float(slice_result["train_loss"].max().item()),
+        float(slice_1d["train_loss"].min().item()),
+        float(slice_1d["train_loss"].max().item()),
     )
 
     logger.info("CNN and residual MLP example probes completed.")

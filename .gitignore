@@ -11,7 +11,7 @@ wheels/
 
 # Experiment and report artifacts and local notes
 # If you want to track reports in git, comment these out.
-reports/
+# reports/
 report_plan.md
 future_work_plan.md
 solution-guide.md

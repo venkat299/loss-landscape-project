@@ -8,6 +8,6 @@ This report compares activation functions (ReLU, Tanh, GELU) across architecture
 
 | Activation | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
-| gelu | moons | gelu | adam, sgd | 0.0305 | 0.9908 |
-| relu | moons | relu | adam, sgd | 0.0280 | 0.9941 |
-| tanh | moons | tanh | adam, sgd | 0.1004 | 0.9554 |
+| gelu | circles, gaussians, moons, xor | gelu | adam, sgd | 0.0177 | 0.9951 |
+| relu | circles, gaussians, moons, xor | relu | adam, sgd | 0.0163 | 0.9969 |
+| tanh | circles, gaussians, moons, xor | tanh | adam, sgd | 0.0855 | 0.9609 |

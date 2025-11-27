@@ -11,6 +11,8 @@ from .visualize import (
     save_interpolation_plots,
     save_pca_plots,
     save_random_slice_plots,
+    save_regularization_interpolation_surface,
+    save_regularization_random_slice_surfaces,
     save_sharpness_histogram,
 )
 
@@ -21,4 +23,6 @@ __all__ = [
     "save_sharpness_histogram",
     "save_pca_plots",
     "save_connectivity_plots",
+    "save_regularization_interpolation_surface",
+    "save_regularization_random_slice_surfaces",
 ]

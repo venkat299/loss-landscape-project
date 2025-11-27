@@ -9,7 +9,7 @@ saved under ``reports/figures/<experiment_group>/``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Sequence
 
 import numpy as np
 import torch
@@ -277,3 +277,107 @@ def save_connectivity_plots(
         title="Linear mode connectivity",
         output_path=output_dir / f"{prefix}_loss.png",
     )
+
+
+def save_regularization_interpolation_surface(
+    alphas: torch.Tensor,
+    weight_decays: Sequence[float],
+    loss_grid: torch.Tensor,
+    output_dir: Path,
+    title: str,
+    prefix: str = "regularization_interp",
+) -> None:
+    """
+    Save a 3D surface showing interpolation loss as a function of
+    interpolation parameter and weight decay.
+
+    Args:
+        alphas (torch.Tensor): 1D tensor of interpolation coefficients
+            between initialization and final weights.
+        weight_decays (Sequence[float]): Sequence of weight decay values.
+        loss_grid (torch.Tensor): 2D tensor of shape
+            (len(weight_decays), len(alphas)) containing loss values.
+        output_dir (Path): Directory where figures will be saved.
+        title (str): Plot title describing the configuration.
+        prefix (str): File name prefix for output plots.
+
+    Returns:
+        None
+    """
+    alpha_np = _tensor_to_numpy(alphas)
+    loss_np = _tensor_to_numpy(loss_grid)
+    weight_np = np.asarray(weight_decays, dtype=float)
+
+    alpha_grid, weight_grid = np.meshgrid(alpha_np, weight_np)
+
+    surface_path = output_dir / f"{prefix}_surface.png"
+    contour_path = output_dir / f"{prefix}_contour.png"
+
+    plot_surface_and_contour(
+        x_grid=alpha_grid,
+        y_grid=weight_grid,
+        z_grid=loss_np,
+        xlabel="alpha (init→final)",
+        ylabel="weight_decay",
+        zlabel="train loss",
+        title=title,
+        output_surface_path=surface_path,
+        output_contour_path=contour_path,
+    )
+
+
+def save_regularization_random_slice_surfaces(
+    alpha_grid: torch.Tensor,
+    beta_grid: torch.Tensor,
+    weight_decays: Sequence[float],
+    loss_volume: torch.Tensor,
+    output_dir: Path,
+    title_prefix: str = "2D random slice train loss",
+    filename_prefix: str = "regularization_slice",
+) -> None:
+    """
+    Save 3D surfaces for 2D random slices across multiple weight decays.
+
+    For each weight decay value, this function creates a 3D surface and
+    2D contour plot over the (alpha, beta) plane using the corresponding
+    slice from ``loss_volume``.
+
+    Args:
+        alpha_grid (torch.Tensor): Grid of alpha values (N, N).
+        beta_grid (torch.Tensor): Grid of beta values (N, N).
+        weight_decays (Sequence[float]): Sequence of weight decay values in
+            the same order as the first dimension of ``loss_volume``.
+        loss_volume (torch.Tensor): Tensor of shape
+            (len(weight_decays), N, N) with train loss values.
+        output_dir (Path): Directory where figures will be saved.
+        title_prefix (str): Prefix for the plot title.
+        filename_prefix (str): Prefix for output file names.
+
+    Returns:
+        None
+    """
+    alpha_np = _tensor_to_numpy(alpha_grid)
+    beta_np = _tensor_to_numpy(beta_grid)
+    loss_np = _tensor_to_numpy(loss_volume)
+
+    num_decays = min(len(weight_decays), loss_np.shape[0])
+    for idx in range(num_decays):
+        wd = float(weight_decays[idx])
+        z_grid = loss_np[idx]
+
+        surface_path = output_dir / f"{filename_prefix}_wd{idx}_surface.png"
+        contour_path = output_dir / f"{filename_prefix}_wd{idx}_contour.png"
+
+        title = f"{title_prefix} (weight_decay={wd:.1e})"
+
+        plot_surface_and_contour(
+            x_grid=alpha_np,
+            y_grid=beta_np,
+            z_grid=z_grid,
+            xlabel="alpha",
+            ylabel="beta",
+            zlabel="train loss",
+            title=title,
+            output_surface_path=surface_path,
+            output_contour_path=contour_path,
+        )

@@ -8,6 +8,6 @@ This report compares models grouped by depth (number of hidden layers) using fin
 
 | Hidden Layers | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
-| 1 | moons | gelu, relu, tanh | adam, sgd | 0.0887 | 0.9662 |
-| 2 | moons | gelu, relu, tanh | adam, sgd | 0.0448 | 0.9848 |
-| 4 | moons | gelu, relu, tanh | adam, sgd | 0.0214 | 0.9916 |
+| 1 | circles, gaussians, moons, xor | gelu, relu, tanh | adam, sgd | 0.0742 | 0.9693 |
+| 2 | circles, gaussians, moons, xor | gelu, relu, tanh | adam, sgd | 0.0265 | 0.9921 |
+| 4 | circles, gaussians, moons, xor | gelu, relu, tanh | adam, sgd | 0.0122 | 0.9954 |

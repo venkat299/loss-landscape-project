@@ -8,7 +8,7 @@ This report compares models grouped by hidden layer width using final test perfo
 
 | Hidden Size | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
-| 100 | moons | gelu, relu, tanh | adam, sgd | 0.0246 | 0.9922 |
-| 250 | moons | gelu, relu, tanh | adam, sgd | 0.0383 | 0.9836 |
-| 50 | moons | gelu, relu, tanh | adam, sgd | 0.0946 | 0.9630 |
-| 500 | moons | gelu, relu, tanh | adam, sgd | 0.0828 | 0.9694 |
+| 100 | circles, gaussians, moons, xor | gelu, relu, tanh | adam, sgd | 0.0149 | 0.9959 |
+| 250 | circles, gaussians, moons, xor | gelu, relu, tanh | adam, sgd | 0.0210 | 0.9911 |
+| 50 | circles, gaussians, moons, xor | gelu, relu, tanh | adam, sgd | 0.0627 | 0.9807 |
+| 500 | circles, gaussians, moons, xor | gelu, relu, tanh | adam, sgd | 0.0856 | 0.9578 |

@@ -70,6 +70,8 @@ from project.landscape.visualizations import (
     save_interpolation_plots,
     save_pca_plots,
     save_random_slice_plots,
+    save_regularization_interpolation_surface,
+    save_regularization_random_slice_surfaces,
     save_sharpness_histogram,
 )
 from project.models import MLPClassifier, build_mlp_from_config
@@ -448,6 +450,320 @@ def _group_runs_by_configuration(
     return groups
 
 
+def _group_runs_by_base_configuration(
+    runs: Sequence[RunConfig],
+) -> Dict[Tuple[str, int, int, str, str], List[RunConfig]]:
+    """
+    Group runs by dataset, architecture, activation, and optimizer,
+    ignoring regularization strength.
+
+    Args:
+        runs (Sequence[RunConfig]): List of run configurations.
+
+    Returns:
+        Dict[Tuple[str, int, int, str, str], List[RunConfig]]:
+            Mapping from configuration key to runs across weight decays.
+    """
+    return _group_runs_by_configuration(runs)
+
+
+def _compute_interpolation_curve_for_run(
+    run: RunConfig,
+    train_loader: DataLoader,
+    test_loader: DataLoader,
+    device: torch.device,
+    num_points: int,
+) -> Dict[str, torch.Tensor]:
+    """
+    Compute an initialization-to-final interpolation curve for a single run.
+
+    Args:
+        run (RunConfig): Run configuration containing paths and hyperparameters.
+        train_loader (DataLoader): Training DataLoader.
+        test_loader (DataLoader): Test DataLoader.
+        device (torch.device): Computation device.
+        num_points (int): Number of interpolation points.
+
+    Returns:
+        Dict[str, torch.Tensor]: Output dictionary from
+        ``linear_interpolation_curve`` restricted to the current run.
+    """
+    init_ckpt = run.training.checkpoint_dir / "init_epoch0.pt"
+    final_ckpt = run.training.checkpoint_dir / f"final_epoch{run.training.epochs}.pt"
+
+    model_init = _load_model_from_checkpoint(run.model, init_ckpt, device)
+    model_final = _load_model_from_checkpoint(run.model, final_ckpt, device)
+
+    interp_results = linear_interpolation_curve(
+        model_a=model_init,
+        model_b=model_final,
+        train_loader=train_loader,
+        test_loader=test_loader,
+        num_points=num_points,
+        device=device,
+        normalize_per_layer=True,
+    )
+    return interp_results
+
+
+def _run_regularization_interpolation_surfaces(
+    runs: Sequence[RunConfig],
+    figures_root: Path,
+    device: torch.device,
+    num_points: int,
+) -> None:
+    """
+    Generate 3D interpolation loss surfaces as a function of weight decay.
+
+    This analysis groups runs that share the same dataset, architecture,
+    activation, and optimizer but differ in L2 weight decay. For each group,
+    it computes interpolation curves between initialization and final weights
+    and aggregates them into a surface over (alpha, weight_decay).
+
+    Args:
+        runs (Sequence[RunConfig]): All reconstructed run configurations.
+        figures_root (Path): Root directory for figures.
+        device (torch.device): Computation device.
+        num_points (int): Number of interpolation points along alpha.
+
+    Returns:
+        None
+    """
+    base_groups = _group_runs_by_base_configuration(runs)
+
+    for key, group_runs in base_groups.items():
+        if not group_runs:
+            continue
+
+        # Collect distinct weight decay values in this group.
+        weight_decays = sorted({float(r.training.weight_decay) for r in group_runs})
+        if len(weight_decays) <= 1:
+            # No variation in regularization; nothing to visualize.
+            continue
+
+        dataset_name, hidden_layers, hidden_size, activation, optimizer = key
+
+        # Regenerate dataset once per group.
+        dataset_cfg = group_runs[0].dataset
+        x_train, y_train, x_test, y_test = _generate_dataset(dataset_cfg)
+        train_loader, test_loader = _make_dataloaders(
+            x_train, y_train, x_test, y_test, batch_size=group_runs[0].training.batch_size
+        )
+
+        # Organize runs by weight decay and aggregate interpolation curves.
+        curves_by_decay: Dict[float, List[torch.Tensor]] = {wd: [] for wd in weight_decays}
+        alphas_ref: torch.Tensor | None = None
+
+        for run in group_runs:
+            interp_results = _compute_interpolation_curve_for_run(
+                run=run,
+                train_loader=train_loader,
+                test_loader=test_loader,
+                device=device,
+                num_points=num_points,
+            )
+
+            alphas = interp_results["alphas"]
+            train_loss = interp_results["train_loss"]
+
+            if alphas_ref is None:
+                alphas_ref = alphas.detach().cpu()
+            else:
+                if alphas_ref.shape != alphas.shape or not torch.allclose(
+                    alphas_ref, alphas.detach().cpu()
+                ):
+                    logger.warning(
+                        "Skipping run at %s due to mismatched interpolation grid.",
+                        run.run_dir,
+                    )
+                    continue
+
+            weight_decay = float(run.training.weight_decay)
+            curves_by_decay.setdefault(weight_decay, []).append(train_loss.detach().cpu())
+
+        if alphas_ref is None:
+            continue
+
+        # Build loss grid: one row per weight decay, averaged over seeds.
+        num_decays = len(weight_decays)
+        num_alphas = int(alphas_ref.numel())
+        loss_grid = torch.zeros(num_decays, num_alphas)
+
+        for idx, wd in enumerate(weight_decays):
+            curves = curves_by_decay.get(wd, [])
+            if not curves:
+                logger.warning(
+                    "No interpolation curves collected for weight_decay=%f in group %s.",
+                    wd,
+                    key,
+                )
+                continue
+            stacked = torch.stack(curves, dim=0)
+            loss_grid[idx] = stacked.mean(dim=0)
+
+        group_dir = (
+            figures_root
+            / f"dataset={dataset_name}"
+            / f"arch={hidden_layers}x{hidden_size}"
+            / f"act={activation}"
+            / f"opt={optimizer}"
+        )
+        reg_dir = group_dir / "regularization"
+
+        surface_path = reg_dir / "regularization_interp_surface.png"
+        if surface_path.exists():
+            continue
+
+        title = (
+            f"Interpolation loss vs weight decay\n"
+            f"dataset={dataset_name}, arch={hidden_layers}x{hidden_size}, "
+            f"act={activation}, opt={optimizer}"
+        )
+        reg_dir.mkdir(parents=True, exist_ok=True)
+        save_regularization_interpolation_surface(
+            alphas=alphas_ref,
+            weight_decays=weight_decays,
+            loss_grid=loss_grid,
+            output_dir=reg_dir,
+            title=title,
+            prefix="regularization_interp",
+        )
+
+
+def _run_regularization_random_slice_surfaces(
+    runs: Sequence[RunConfig],
+    figures_root: Path,
+    device: torch.device,
+    num_points: int,
+    radius: float,
+) -> None:
+    """
+    Generate 3D random-slice loss surfaces as a function of weight decay.
+
+    For each (dataset, architecture, activation, optimizer) group with
+    multiple weight decay values, this computes 2D random direction
+    loss surfaces around the final models and aggregates them across
+    seeds to produce per-weight-decay surfaces.
+
+    Args:
+        runs (Sequence[RunConfig]): All reconstructed run configurations.
+        figures_root (Path): Root directory for figures.
+        device (torch.device): Computation device.
+        num_points (int): Number of grid points per axis for slices.
+        radius (float): Radius for random direction exploration.
+
+    Returns:
+        None
+    """
+    base_groups = _group_runs_by_base_configuration(runs)
+
+    for key, group_runs in base_groups.items():
+        if not group_runs:
+            continue
+
+        weight_decays = sorted({float(r.training.weight_decay) for r in group_runs})
+        if len(weight_decays) <= 1:
+            continue
+
+        dataset_name, hidden_layers, hidden_size, activation, optimizer = key
+
+        dataset_cfg = group_runs[0].dataset
+        x_train, y_train, x_test, y_test = _generate_dataset(dataset_cfg)
+        train_loader, test_loader = _make_dataloaders(
+            x_train, y_train, x_test, y_test, batch_size=group_runs[0].training.batch_size
+        )
+
+        slice_cfg = SliceConfig(num_points=num_points, radius=radius)
+
+        surfaces_by_decay: Dict[float, List[torch.Tensor]] = {wd: [] for wd in weight_decays}
+        alpha_grid_ref: torch.Tensor | None = None
+        beta_grid_ref: torch.Tensor | None = None
+
+        for run in group_runs:
+            ckpt = run.training.checkpoint_dir / f"final_epoch{run.training.epochs}.pt"
+            model_final = _load_model_from_checkpoint(run.model, ckpt, device)
+
+            slice_result = random_2d_loss_surface(
+                model=model_final,
+                train_loader=train_loader,
+                test_loader=test_loader,
+                config=slice_cfg,
+                device=device,
+                seed=0,
+            )
+
+            alpha_grid = slice_result["alpha_grid"]
+            beta_grid = slice_result["beta_grid"]
+            train_surface = slice_result["train_loss"]
+
+            if alpha_grid_ref is None or beta_grid_ref is None:
+                alpha_grid_ref = alpha_grid.detach().cpu()
+                beta_grid_ref = beta_grid.detach().cpu()
+            else:
+                if (
+                    alpha_grid_ref.shape != alpha_grid.shape
+                    or beta_grid_ref.shape != beta_grid.shape
+                    or not torch.allclose(alpha_grid_ref, alpha_grid.detach().cpu())
+                    or not torch.allclose(beta_grid_ref, beta_grid.detach().cpu())
+                ):
+                    logger.warning(
+                        "Skipping run at %s due to mismatched random slice grid.",
+                        run.run_dir,
+                    )
+                    continue
+
+            wd = float(run.training.weight_decay)
+            surfaces_by_decay.setdefault(wd, []).append(train_surface.detach().cpu())
+
+        if alpha_grid_ref is None or beta_grid_ref is None:
+            continue
+
+        num_decays = len(weight_decays)
+        height, width = alpha_grid_ref.shape
+        loss_volume = torch.zeros(num_decays, height, width)
+
+        for idx, wd in enumerate(weight_decays):
+            surfaces = surfaces_by_decay.get(wd, [])
+            if not surfaces:
+                logger.warning(
+                    "No random slice surfaces collected for weight_decay=%f in group %s.",
+                    wd,
+                    key,
+                )
+                continue
+            stacked = torch.stack(surfaces, dim=0)
+            loss_volume[idx] = stacked.mean(dim=0)
+
+        group_dir = (
+            figures_root
+            / f"dataset={dataset_name}"
+            / f"arch={hidden_layers}x{hidden_size}"
+            / f"act={activation}"
+            / f"opt={optimizer}"
+        )
+        reg_dir = group_dir / "regularization"
+
+        marker = reg_dir / "regularization_slice_wd0_surface.png"
+        if marker.exists():
+            continue
+
+        reg_dir.mkdir(parents=True, exist_ok=True)
+        title_prefix = (
+            f"2D random slice train loss\n"
+            f"dataset={dataset_name}, arch={hidden_layers}x{hidden_size}, "
+            f"act={activation}, opt={optimizer}"
+        )
+        save_regularization_random_slice_surfaces(
+            alpha_grid=alpha_grid_ref,
+            beta_grid=beta_grid_ref,
+            weight_decays=weight_decays,
+            loss_volume=loss_volume,
+            output_dir=reg_dir,
+            title_prefix=title_prefix,
+            filename_prefix="regularization_slice",
+        )
+
+
 def _run_connectivity_and_pca_for_group(
     group_key: Tuple[str, int, int, str, str],
     runs: Sequence[RunConfig],
@@ -694,6 +1010,22 @@ def run_all_probes(args: argparse.Namespace) -> None:
         )
         group_progress.update(1)
     group_progress.close()
+
+    # Regularization study: interpolation surfaces vs weight decay.
+    _run_regularization_interpolation_surfaces(
+        runs=run_configs,
+        figures_root=figures_root,
+        device=device,
+        num_points=args.interp_points,
+    )
+
+    _run_regularization_random_slice_surfaces(
+        runs=run_configs,
+        figures_root=figures_root,
+        device=device,
+        num_points=args.slice_2d_points,
+        radius=args.slice_2d_radius,
+    )
 
     # Markdown reports.
     generate_study_reports(experiments_root=experiments_root, reports_root=reports_root)

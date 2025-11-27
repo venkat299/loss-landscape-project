@@ -79,6 +79,11 @@ This will:
   - Save connectivity and PCA figures under:
     - `reports/figures/dataset=…/arch=…/act=…/opt=…/connectivity/`
     - `reports/figures/dataset=…/arch=…/act=…/opt=…/pca/`
+  - For configurations trained with **multiple weight decay values**, aggregate:
+    - interpolation loss surfaces over (alpha, weight_decay),
+    - 2D random-slice loss surfaces over (alpha, beta, weight_decay),
+    saved under:
+    - `reports/figures/dataset=…/arch=…/act=…/opt=…/regularization/`
 - Generate top-level Markdown reports under `reports/`:
   - `summary.md`
   - `depth_study.md`
@@ -86,6 +91,7 @@ This will:
   - `activation_study.md`
   - `optimizer_study.md`
   - `connectivity_study.md`
+  - `regularization_study.md` (weight decay vs. landscape geometry)
 
 The script is **idempotent**:
 - Per-run probes are skipped if `hessian/spectrum.json` already exists for that run.
@@ -133,6 +139,13 @@ tests/            # Unit and smoke tests
     - `deep-small` (4 × 100),
     - `deep-large` (4 × 250),
     - `medium` (2 × 100).
+- `cnn.py`:
+  - `CNNConfig` / `ConvNetClassifier`: small convolutional classifier used to
+    demonstrate that the training and probing stack applies beyond MLPs
+    (e.g. on 2D inputs reshaped into images).
+- `resnet.py`:
+  - `ResidualMLPConfig` / `ResidualMLPClassifier`: MLP-style model with
+    residual blocks, used for landscape comparisons with and without skips.
 
 ### 3.3 `project/experiments/`
 
@@ -156,6 +169,10 @@ tests/            # Unit and smoke tests
     - metrics (JSON),
     - summaries (JSON),
     - checkpoints.
+- `run_cnn_resnet_example.py`:
+  - Trains a small ConvNet and a residual MLP on the moons dataset.
+  - Runs interpolation and random-slice probes to show that CNN/ResNet
+    architectures can be analyzed with the same landscape utilities.
 
 - `run_probes_and_reports.py`:
   - Orchestrates all landscape probes and report generation, as described in §2.2.
@@ -261,4 +278,3 @@ End-to-end flow:
    - performance,
    - geometry of the loss landscape,
    - qualitative and quantitative differences across architectures and optimizers.
-
