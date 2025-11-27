@@ -142,15 +142,15 @@ These plots illustrate how well-trained models sit at very low-loss endpoints, e
 
 ### 3.5 Expectations vs. experimental findings
 
-The solution guide emphasizes that on simple, low-dimensional tasks with over-parameterized MLPs, we should expect:
+Prior work emphasizes that on simple, low-dimensional tasks with over-parameterized MLPs, we should expect:
 - training to reach near-zero loss across many architectures,
 - test accuracy to be high for a wide swath of configurations,
 - modest but systematic differences across depth, width, activation, and optimizer choices.
 
 Our results align with these expectations:
 - Deep and moderately wide networks (e.g. 4×100, 2×100) do slightly better on average than very narrow or very wide ones, consistent with the idea that sufficient—but not excessive—capacity smooths the landscape and enlarges connected low-loss basins.
-- ReLU/GELU activations outperform Tanh, matching the guide’s discussion that saturating activations can make optimization harder and lead to sharper, narrower valleys.
-- Unlike some large-scale results where SGD can generalize better than Adam, on this small moons problem Adam dominates. This is still compatible with the solution guide: it stresses that optimizer comparisons are highly regime-dependent, and that adaptive methods can excel when the task is simple and regularization is implicit in the architecture and data.
+- ReLU/GELU activations outperform Tanh, matching standard discussions that saturating activations can make optimization harder and lead to sharper, narrower valleys.
+- Unlike some large-scale results where SGD can generalize better than Adam, on this small moons problem Adam dominates. This is still compatible with prior work: it stresses that optimizer comparisons are highly regime-dependent, and that adaptive methods can excel when the task is simple and regularization is implicit in the architecture and data.
 
 ---
 
@@ -205,14 +205,14 @@ Analogous surfaces and slices exist for all other configurations under `reports/
 
 ### 4.2 How these probes relate to theory
 
-The solution guide highlights several expectations from prior work (e.g. Goodfellow et al. on interpolation, Li et al. on 2D projections):
+Prior work (e.g. Goodfellow et al. on interpolation, Li et al. on 2D projections) highlights several expectations:
 - Well-trained models on over-parameterized networks often lie in broad valleys where **linear interpolation** between solutions yields low-loss paths rather than high barriers.
 - **Random directional slices** and PCA-plane projections frequently reveal valley-like geometry with a few steep directions and many flat ones.
 
 Qualitatively, our figures are consistent with this picture:
 - Interpolation curves from initialization to final weights are typically monotonic and do not exhibit large unexpected bumps, supporting the view that gradient-based training follows relatively smooth directions downhill.
 - PCA surfaces for high-performing configurations show extended low-loss regions around the final solution, not isolated sharp pits, in line with the “broad basin” interpretation.
-- Random 2D slices around well-trained models often exhibit gently rising loss away from the center, with occasional steeper directions, matching the solution guide’s description of skewed curvature: a handful of stiff directions embedded in many nearly-flat ones.
+- Random 2D slices around well-trained models often exhibit gently rising loss away from the center, with occasional steeper directions, matching the literature’s description of skewed curvature: a handful of stiff directions embedded in many nearly-flat ones.
 
 ---
 
@@ -254,14 +254,14 @@ Comparing spectra like these across configurations helps reveal whether particul
 
 ### 5.2 Expectations vs. experimental findings
 
-The solution guide summarizes several robust empirical findings:
+Existing literature summarizes several robust empirical findings:
 - Hessian spectra of trained deep nets are typically **highly skewed**: a few large eigenvalues with the bulk near zero.
 - Architectural and optimization choices (e.g. depth, batch normalization, optimizer) can significantly change the scale of the largest eigenvalues and overall conditioning.
 
 Our spectra conform to this qualitative pattern:
-- For both SGD and Adam runs, stem plots show only a handful of noticeably large eigenvalues and many very small ones, even for deeper models—precisely what the guide describes for over-parameterized networks.
-- Comparing Tanh vs. ReLU/GELU, and SGD vs. Adam, we often see that underperforming configurations (e.g. deep Tanh with SGD or Adam) have noticeably larger leading eigenvalues, indicating sharper curvature. This matches the guide’s claim that certain training choices can drive solutions into narrower valleys that may be harder to optimize and less robust.
-- In contrast, high-performing ReLU/GELU networks trained with Adam tend to have more tempered top eigenvalues, suggesting better-conditioned local landscapes in line with expectations from the Hessian-focused literature referenced in the guide (e.g. PyHessian, Ghorbani et al.).
+- For both SGD and Adam runs, stem plots show only a handful of noticeably large eigenvalues and many very small ones, even for deeper models—precisely what this literature describes for over-parameterized networks.
+- Comparing Tanh vs. ReLU/GELU, and SGD vs. Adam, we often see that underperforming configurations (e.g. deep Tanh with SGD or Adam) have noticeably larger leading eigenvalues, indicating sharper curvature. This matches the claim that certain training choices can drive solutions into narrower valleys that may be harder to optimize and less robust.
+- In contrast, high-performing ReLU/GELU networks trained with Adam tend to have more tempered top eigenvalues, suggesting better-conditioned local landscapes in line with expectations from the Hessian-focused literature (e.g. PyHessian, Ghorbani et al.).
 
 ---
 
@@ -308,14 +308,14 @@ These charts illustrate how often perturbations of a given magnitude lead to sig
 
 ### 6.2 Expectations vs. experimental findings
 
-The solution guide discusses several perspectives on sharpness:
+The literature discusses several perspectives on sharpness:
 - Classical view (e.g. Hochreiter & Schmidhuber; Keskar et al.): **flatter minima** generally correlate with better generalization and robustness.
 - More recent work (e.g. Dinh et al., Shi et al.) cautions that sharpness can be manipulated, but still recognizes that, under comparable parameterizations, excessively sharp regions tend to be undesirable.
 
 Our sharpness histograms broadly align with the classical intuition:
 - Configurations with excellent generalization (e.g. ReLU/GELU with Adam) typically show sharpness histograms concentrated near small loss increases, indicating relatively broad basins around the solution.
 - Problematic settings (notably deep Tanh networks, especially with SGD) display heavier tails in their loss-increase distributions and larger maximum increases, consistent with landing in sharper minima.
-- At the same time, the differences are not extreme on this simple dataset, which matches the guide’s note that for small, easy problems multiple minima can generalize well, even if they differ in precise sharpness metrics.
+- At the same time, the differences are not extreme on this simple dataset, which matches the observation that for small, easy problems multiple minima can generalize well, even if they differ in precise sharpness metrics.
 
 ---
 
@@ -353,14 +353,14 @@ For configurations where these curves remain low and smooth, independently train
 
 ### 7.2 Expectations vs. experimental findings
 
-The solution guide, drawing on work by Garipov, Draxler, and subsequent studies, stresses that:
+Prior work by Garipov, Draxler, and subsequent studies stresses that:
 - modern over-parameterized networks often exhibit **linear or nearly-linear mode connectivity**, with surprisingly low barriers between independently trained solutions;
 - permutation symmetries, especially in shallow MLPs, can obscure this connectivity unless neurons are aligned.
 
 Our connectivity results follow this narrative:
 - For many ReLU/GELU configurations, especially under Adam, linear paths between seeds have small barriers, and the aggregated statistics in Appendix F show mean test barriers close to zero—consistent with the “essentially no barriers” phenomenon.
 - For some harder cases (e.g. deep Tanh networks under Adam, where curvature and sharpness are also high), the connectivity summary reveals larger mean and maximum barriers, indicating that not all minima are equally well connected in weight space.
-- Applying a simple neuron permutation alignment for 1-hidden-layer models materially reduces apparent barriers in that regime, mirroring the solution guide’s point that respecting permutation invariance is important when interpreting connectivity experiments.
+- Applying a simple neuron permutation alignment for 1-hidden-layer models materially reduces apparent barriers in that regime, mirroring the point that respecting permutation invariance is important when interpreting connectivity experiments.
 
 As a contrast to the `4x250` Tanh case, consider a shallow configuration where connectivity is much easier:
 
@@ -627,7 +627,7 @@ Together, these extensions would further illuminate how architectural and optimi
 
 ## References
 
-The following external references are those emphasized in the accompanying solution guide and underpin the design of our probes and interpretations:
+The following external references underpin the design of our probes and interpretations:
 
 - Goodfellow, I. et al. (2015). *Qualitatively Characterizing Neural Network Optimization Problems.* ICLR.  
   Visualizations and 1D interpolations of loss surfaces.  

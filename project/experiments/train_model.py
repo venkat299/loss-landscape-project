@@ -21,7 +21,6 @@ from torch.optim import Adam, SGD, Optimizer
 from torch.optim.lr_scheduler import StepLR, _LRScheduler
 from torch.utils.data import DataLoader, TensorDataset
 
-from project.models import MLPClassifier
 from project.utils.configs import TrainingConfig
 from project.utils.seed import set_global_seed
 
@@ -250,14 +249,14 @@ def evaluate_model(
 
 
 def train_model(
-    model: MLPClassifier,
+    model: nn.Module,
     x_train: Tensor,
     y_train: Tensor,
     x_test: Tensor,
     y_test: Tensor,
     config: TrainingConfig,
     checkpoint_epochs: Optional[Sequence[int]] = None,
-) -> Tuple[MLPClassifier, List[dict]]:
+) -> Tuple[nn.Module, List[dict]]:
     """
     Train an MLP classifier according to the provided configuration.
 
@@ -273,7 +272,7 @@ def train_model(
             analyses (e.g. PCA trajectories).
 
     Returns:
-        Tuple[MLPClassifier, List[dict]]:
+        Tuple[nn.Module, List[dict]]:
             The trained model and a list of per-epoch metric dictionaries
             containing training and test loss/accuracy.
     """
@@ -344,4 +343,3 @@ def train_model(
     _save_checkpoint(model, optimizer, epoch=config.epochs, config=config, prefix="final")
 
     return model, metrics
-

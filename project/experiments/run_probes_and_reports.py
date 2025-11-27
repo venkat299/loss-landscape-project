@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm.auto import tqdm
 
@@ -44,11 +44,13 @@ from project.data import (
     generate_moons_dataset,
     generate_xor_dataset,
 )
+from project.experiments import evaluate_model
 from project.landscape.connectivity import (
     apply_neuron_permutation_1layer,
     compute_neuron_permutation_1layer,
     linear_connectivity_barrier,
 )
+from project.landscape.common import flatten_parameters, get_parameter_tensors
 from project.landscape.hessian import estimate_hessian_spectrum
 from project.landscape.interpolation import linear_interpolation_curve
 from project.landscape.pca import (
@@ -323,6 +325,21 @@ def _run_single_run_probes(
     )
     save_interpolation_plots(interp_results, output_dir=interp_dir, prefix="init_final")
 
+    # Path-based flatness metrics along the interpolation.
+    interp_stats = {
+        "num_points": int(interp_results["train_loss"].numel()),
+        "train_min": float(interp_results["train_loss"].min().item()),
+        "train_max": float(interp_results["train_loss"].max().item()),
+        "train_mean": float(interp_results["train_loss"].mean().item()),
+        "test_min": float(interp_results["test_loss"].min().item()),
+        "test_max": float(interp_results["test_loss"].max().item()),
+        "test_mean": float(interp_results["test_loss"].mean().item()),
+    }
+    interp_stats_path = interp_dir / "interp_stats.json"
+    interp_stats_path.parent.mkdir(parents=True, exist_ok=True)
+    with interp_stats_path.open("w", encoding="utf-8") as f_interp:
+        json.dump(interp_stats, f_interp, indent=2)
+
     # Random slices (1D and 2D) around the final model.
     slice_cfg_1d = SliceConfig(num_points=slice_1d_points, radius=slice_1d_radius)
     slice_cfg_2d = SliceConfig(num_points=slice_2d_points, radius=slice_2d_radius)
@@ -385,6 +402,24 @@ def _run_single_run_probes(
     sharp_json_path = sharpness_dir / "sharpness.json"
     with sharp_json_path.open("w", encoding="utf-8") as f_sharp:
         json.dump(sharp_json, f_sharp, indent=2)
+
+    # PAC-Bayes-style metric: distance from initialization in parameter space.
+    init_params = get_parameter_tensors(model_init)
+    final_params = get_parameter_tensors(model_final)
+    diff_flat = flatten_parameters([fb - fa for fa, fb in zip(init_params, final_params)])
+    weight_distance = float(diff_flat.norm().item())
+
+    criterion = nn.CrossEntropyLoss()
+    final_train_loss, _ = evaluate_model(model_final, train_loader, criterion, device)
+
+    run_root = run.training.checkpoint_dir.parent
+    pac_path = run_root / "pacbayes_style.json"
+    pac_metrics = {
+        "weight_l2_distance_from_init": weight_distance,
+        "final_train_loss": final_train_loss,
+    }
+    with pac_path.open("w", encoding="utf-8") as f_pac:
+        json.dump(pac_metrics, f_pac, indent=2)
 
 
 def _group_runs_by_configuration(
@@ -491,10 +526,18 @@ def _run_connectivity_and_pca_for_group(
             pair_dir = connectivity_dir / f"seed={run_i.seed}_to_seed={run_j.seed}"
             save_connectivity_plots(conn_results, output_dir=pair_dir, prefix="linear")
 
-            # Save a small JSON summary of barrier heights.
+            # Save a JSON summary of barrier heights and path-based flatness metrics.
+            train_losses_path = conn_results["train_loss"]
+            test_losses_path = conn_results["test_loss"]
             barriers = {
                 "train_barrier": float(conn_results["train_barrier"]),
                 "test_barrier": float(conn_results["test_barrier"]),
+                "train_min": float(train_losses_path.min().item()),
+                "train_max": float(train_losses_path.max().item()),
+                "train_mean": float(train_losses_path.mean().item()),
+                "test_min": float(test_losses_path.min().item()),
+                "test_max": float(test_losses_path.max().item()),
+                "test_mean": float(test_losses_path.mean().item()),
             }
             pair_dir.mkdir(parents=True, exist_ok=True)
             with (pair_dir / "barriers.json").open("w", encoding="utf-8") as f_bar:

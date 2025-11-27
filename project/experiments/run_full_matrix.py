@@ -27,6 +27,7 @@ from tqdm.auto import tqdm
 
 from project.data import (
     generate_circles_dataset,
+    generate_gaussian_clusters_dataset,
     generate_moons_dataset,
     generate_xor_dataset,
 )
@@ -79,6 +80,8 @@ def _generate_dataset(config: DatasetConfig) -> Tuple[Tensor, Tensor, Tensor, Te
         return generate_moons_dataset(config)
     if config.name == "circles":
         return generate_circles_dataset(config)
+    if config.name == "gaussians":
+        return generate_gaussian_clusters_dataset(config)
     if config.name == "xor":
         return generate_xor_dataset(config)
     raise ValueError(f"Unsupported dataset type for matrix experiment: {config.name}")
@@ -230,11 +233,16 @@ def run_full_matrix(args: argparse.Namespace) -> None:
     activations = ["relu", "tanh", "gelu"]
     optimizers = ["sgd", "adam"]
 
-    datasets: List[str] = ["moons"]
-    if args.include_circles:
-        datasets.append("circles")
-    if args.include_xor:
-        datasets.append("xor")
+    if args.datasets:
+        datasets = [name.strip() for name in args.datasets.split(",") if name.strip()]
+    else:
+        datasets: List[str] = ["moons"]
+        if args.include_circles:
+            datasets.append("circles")
+        if args.include_gaussians:
+            datasets.append("gaussians")
+        if args.include_xor:
+            datasets.append("xor")
 
     experiment_configs = _build_experiment_configs(
         architectures=architectures,
@@ -409,9 +417,24 @@ def _parse_args() -> argparse.Namespace:
         help="Include the circles dataset in the experiment matrix.",
     )
     parser.add_argument(
+        "--include-gaussians",
+        action="store_true",
+        help="Include the Gaussian-cluster dataset in the experiment matrix.",
+    )
+    parser.add_argument(
         "--include-xor",
         action="store_true",
         help="Include the XOR-like dataset in the experiment matrix.",
+    )
+    parser.add_argument(
+        "--datasets",
+        type=str,
+        default="",
+        help=(
+            "Comma-separated list of dataset names to include "
+            "(overrides --include-* flags when provided). "
+            "Supported: moons,circles,gaussians,xor"
+        ),
     )
     return parser.parse_args()
 
