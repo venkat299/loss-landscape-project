@@ -262,4 +262,3 @@ End-to-end flow:
    - geometry of the loss landscape,
    - qualitative and quantitative differences across architectures and optimizers.
 
-This structure makes it easy to rerun experiments, plug in new models or datasets, and extend the probing toolkit while keeping training, analysis, visualization, and reporting cleanly separated.

@@ -9,9 +9,11 @@ wheels/
 # Virtual environments
 .venv
 
-# Experiment and report artifacts
-# reports/
+# Experiment and report artifacts and local notes
+# If you want to track reports in git, comment these out.
+reports/
 report_plan.md
+future_work_plan.md
 solution-guide.md
 Tasks.md
 Agents.md
