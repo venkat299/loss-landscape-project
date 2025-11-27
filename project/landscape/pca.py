@@ -48,7 +48,9 @@ def collect_parameter_trajectory(
     """
     weight_vectors: List[Tensor] = []
     for path in checkpoint_paths:
-        state = torch.load(path, map_location=device)
+        # Use ``weights_only=False`` for compatibility with checkpoints that
+        # store additional metadata (e.g. config objects) alongside weights.
+        state = torch.load(path, map_location=device, weights_only=False)
         state_dict = state["model_state_dict"]
         model.load_state_dict(state_dict)
         model = model.to(device)
@@ -180,4 +182,3 @@ def loss_over_pca_grid(
         "train_loss": train_surface,
         "test_loss": test_surface,
     }
-

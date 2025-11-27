@@ -36,6 +36,7 @@ from typing import Dict, List, Sequence, Tuple
 import torch
 from torch import Tensor
 from torch.utils.data import DataLoader, TensorDataset
+from tqdm.auto import tqdm
 
 from project.data import (
     generate_circles_dataset,
@@ -578,8 +579,28 @@ def run_all_probes(args: argparse.Namespace) -> None:
         grid_radius=args.pca_grid_radius,
     )
 
-    # Per-run probes.
+    # Per-run probes with progress bar and idempotent skipping.
+    per_run_progress = tqdm(
+        total=len(run_configs),
+        desc="Per-run probes",
+        unit="run",
+    )
     for run in run_configs:
+        # Use existence of Hessian spectrum JSON as a completion marker.
+        hessian_dir = (
+            figures_root
+            / f"dataset={run.dataset.name}"
+            / f"arch={run.model.hidden_layers}x{run.model.hidden_size}"
+            / f"act={run.model.activation}"
+            / f"opt={run.training.optimizer}"
+            / f"seed={run.seed}"
+            / "hessian"
+        )
+        hessian_json = hessian_dir / "spectrum.json"
+        if hessian_json.exists():
+            per_run_progress.update(1)
+            continue
+
         _run_single_run_probes(
             run=run,
             figures_root=figures_root,
@@ -593,10 +614,32 @@ def run_all_probes(args: argparse.Namespace) -> None:
             sharpness_cfg=sharpness_cfg,
             pca_cfg=pca_cfg,
         )
+        per_run_progress.update(1)
+    per_run_progress.close()
 
-    # Group-level connectivity and PCA.
+    # Group-level connectivity and PCA with progress bar and idempotent skipping.
     groups = _group_runs_by_configuration(run_configs)
-    for key, runs in groups.items():
+    group_keys = list(groups.keys())
+    group_progress = tqdm(
+        total=len(group_keys),
+        desc="Group-level connectivity/PCA",
+        unit="config",
+    )
+    for key in group_keys:
+        runs = groups[key]
+        dataset_name, hidden_layers, hidden_size, activation, optimizer = key
+        group_dir = (
+            figures_root
+            / f"dataset={dataset_name}"
+            / f"arch={hidden_layers}x{hidden_size}"
+            / f"act={activation}"
+            / f"opt={optimizer}"
+        )
+        pca_surface = group_dir / "pca" / "pca_surface.png"
+        if pca_surface.exists():
+            group_progress.update(1)
+            continue
+
         _run_connectivity_and_pca_for_group(
             group_key=key,
             runs=runs,
@@ -606,6 +649,8 @@ def run_all_probes(args: argparse.Namespace) -> None:
             connectivity_points=args.connectivity_points,
             pca_cfg=pca_cfg,
         )
+        group_progress.update(1)
+    group_progress.close()
 
     # Markdown reports.
     generate_study_reports(experiments_root=experiments_root, reports_root=reports_root)

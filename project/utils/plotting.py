@@ -224,8 +224,8 @@ def plot_stem(
     """
     _ensure_parent_dir(output_path)
     fig, ax = plt.subplots()
-    # ``use_line_collection`` has been removed in recent Matplotlib versions,
-    # so we rely on the default behavior for compatibility.
+    # ``use_line_collection`` is deprecated/removed in newer Matplotlib
+    # versions, so we rely on default behavior for compatibility.
     markerline, stemlines, baseline = ax.stem(x, y)
     markerline.set_markerfacecolor("blue")
     stemlines.set_linewidth(1.5)
