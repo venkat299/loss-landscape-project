@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 @dataclass
@@ -218,6 +218,72 @@ def _group_by_key(
     return groups
 
 
+def _load_connectivity_stats(figures_root: Path) -> Dict[str, Dict[str, object]]:
+    """
+    Load connectivity barrier statistics from figures directory.
+
+    This scans ``reports/figures/.../connectivity/*/barriers.json`` and
+    aggregates train/test barrier heights per (dataset, architecture,
+    activation, optimizer) configuration.
+
+    Args:
+        figures_root (Path): Root directory containing connectivity figures.
+
+    Returns:
+        Dict[str, Dict[str, object]]: Mapping from a configuration key to
+        metadata and lists of barrier values.
+    """
+    stats: Dict[str, Dict[str, object]] = {}
+
+    if not figures_root.exists():
+        return stats
+
+    for path in figures_root.rglob("barriers.json"):
+        try:
+            with path.open("r", encoding="utf-8") as f_bar:
+                data = json.load(f_bar)
+        except Exception:
+            continue
+
+        train_barrier = float(data.get("train_barrier", 0.0))
+        test_barrier = float(data.get("test_barrier", 0.0))
+
+        pair_dir = path.parent
+        connectivity_dir = pair_dir.parent
+        opt_dir = connectivity_dir.parent
+        act_dir = opt_dir.parent
+        arch_dir = act_dir.parent
+        dataset_dir = arch_dir.parent
+
+        def _value(name: str) -> str:
+            return name.split("=", 1)[1] if "=" in name else name
+
+        dataset = _value(dataset_dir.name)
+        arch = _value(arch_dir.name)
+        activation = _value(act_dir.name)
+        optimizer = _value(opt_dir.name)
+
+        key = "|".join([dataset, arch, activation, optimizer])
+        entry = stats.setdefault(
+            key,
+            {
+                "dataset": dataset,
+                "architecture": arch,
+                "activation": activation,
+                "optimizer": optimizer,
+                "train_barriers": [],
+                "test_barriers": [],
+            },
+        )
+
+        train_list: List[float] = entry["train_barriers"]  # type: ignore[assignment]
+        test_list: List[float] = entry["test_barriers"]  # type: ignore[assignment]
+        train_list.append(train_barrier)
+        test_list.append(test_barrier)
+
+    return stats
+
+
 def _study_report_template(
     title: str,
     description: str,
@@ -288,7 +354,7 @@ def generate_study_reports(
         - ``width_study.md``
         - ``activation_study.md``
         - ``optimizer_study.md``
-        - ``connectivity_study.md`` (placeholder referencing connectivity figures)
+        - ``connectivity_study.md`` (aggregated connectivity statistics)
 
     Args:
         experiments_root (Path): Root directory containing experiment runs.
@@ -383,11 +449,58 @@ def generate_study_reports(
         "activation, optimizer, seed-pair) combination."
     )
     connectivity_lines.append("")
+
+    figures_root = reports_root / "figures"
+    connectivity_stats = _load_connectivity_stats(figures_root)
+
+    if not connectivity_stats:
+        connectivity_lines.append(
+            "_No connectivity barrier JSON files were found. "
+            "Ensure probes have been run to completion to populate "
+            "`reports/figures/.../connectivity/*/barriers.json`._"
+        )
+        _write_report(reports_root / "connectivity_study.md", "\n".join(connectivity_lines))
+        return
+
+    connectivity_lines.append("## Connectivity summary")
+    connectivity_lines.append("")
     connectivity_lines.append(
-        "Refer to these figures alongside the depth, width, activation, and "
-        "optimizer studies to interpret how easily different configurations "
-        "can be connected in parameter space without encountering high-loss "
-        "barriers."
+        "| Dataset | Architecture | Activation | Optimizer | "
+        "Num Pairs | Mean Train Barrier | Mean Test Barrier | "
+        "Max Train Barrier | Max Test Barrier |"
     )
+    connectivity_lines.append(
+        "| ------- | ------------ | ---------- | --------- | "
+        "--------- | ------------------- | ------------------ | "
+        "------------------- | ------------------ |"
+    )
+
+    for key in sorted(connectivity_stats.keys()):
+        entry = connectivity_stats[key]
+        dataset = entry["dataset"]  # type: ignore[assignment]
+        arch = entry["architecture"]  # type: ignore[assignment]
+        activation = entry["activation"]  # type: ignore[assignment]
+        optimizer = entry["optimizer"]  # type: ignore[assignment]
+        train_vals: List[float] = entry["train_barriers"]  # type: ignore[assignment]
+        test_vals: List[float] = entry["test_barriers"]  # type: ignore[assignment]
+
+        if train_vals and test_vals:
+            num_pairs = len(train_vals)
+            mean_train = _mean(train_vals)
+            mean_test = _mean(test_vals)
+            max_train = max(train_vals)
+            max_test = max(test_vals)
+        else:
+            num_pairs = 0
+            mean_train = 0.0
+            mean_test = 0.0
+            max_train = 0.0
+            max_test = 0.0
+
+        connectivity_lines.append(
+            f"| {dataset} | {arch} | {activation} | {optimizer} | "
+            f"{num_pairs} | {mean_train:.4f} | {mean_test:.4f} | "
+            f"{max_train:.4f} | {max_test:.4f} |"
+        )
 
     _write_report(reports_root / "connectivity_study.md", "\n".join(connectivity_lines))

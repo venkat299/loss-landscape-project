@@ -221,7 +221,20 @@ Visualizations:
 
 ---
 
-## 4. Testing
+## 4. Final Reports
+
+After running the probes + report generation step (§2.2), you have several Markdown reports:
+
+- `final_report.md` (root): single, submission-ready report that:
+  - narratively explains the setup, methods, and key findings,
+  - embeds representative charts (interpolation, PCA surfaces, random slices, Hessian spectra, sharpness histograms, connectivity curves),
+  - collects all large tables in appendices (per-run metrics, depth/width/activation/optimizer studies, connectivity summary).
+
+
+
+---
+
+## 5. Testing
 
 Lightweight tests live under `tests/`:
 
@@ -236,7 +249,7 @@ Included tests cover:
 
 ---
 
-## 5. How the Pieces Fit Together
+## 6. How the Pieces Fit Together
 
 End-to-end flow:
 1. **Data generation** (`project/data`) creates small synthetic classification problems.
