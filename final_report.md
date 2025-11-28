@@ -29,6 +29,24 @@ This report is intended as a **single final submission** document. The main body
 | Landscape geometry | Well-trained models typically lie in broad valleys with low barriers between seeds (especially ReLU/GELU + Adam); underperforming Tanh configs show sharper, more irregular basins (evidence across §4, §5–6 and the connectivity, Hessian, and sharpness summaries). |
 | CNN & residual MLP | ConvNet and residual MLP probes show interpolation/slice shapes very similar to deep MLPs, confirming that the qualitative landscape picture extends beyond plain fully connected nets (see §2.2, §4.4–4.5). |
 
+\onecolumn
+
+### Answers to the Core Questions
+
+The original motivation was to relate loss landscape geometry to optimization dynamics, generalization, and architecture. Using our experiments, we can now answer the guiding questions qualitatively:
+
+- **Why does SGD find generalizable minima despite non-convexity?**  
+  On these synthetic tasks, both SGD and Adam frequently reach near-zero training loss and high test accuracy, especially for ReLU/GELU architectures. Interpolation curves, PCA surfaces, and connectivity plots show that many well-trained solutions lie in broad, low-barrier valleys rather than isolated pits (see §3.1, §3.6, §4 and Appendix F). This helps explain why even a simple optimizer like SGD can find generalizable minima in a highly non-convex landscape—there are large connected regions of good solutions.
+
+- **How does architecture affect loss landscape topology?**  
+  Depth, width, and activation all leave clear signatures in both performance and geometry. Deeper and moderately wide MLPs (2–4 layers, ~100 units) tend to have smoother interpolation paths, broader PCA-plane basins, and lower connectivity barriers than very shallow or extremely wide models (§3.2, §4.1, §4.2, §8). ReLU/GELU architectures systematically exhibit flatter, more connected landscapes than Tanh counterparts, which show sharper curvature and higher barriers, especially at greater depth (§3.3, §4, Appendix F).
+
+- **What geometric properties correlate with trainability and generalization?**  
+  Configurations that train easily and generalize well (deep/moderate-width ReLU/GELU with Adam) share several geometric traits: smooth init→final interpolation curves, low barriers between seeds, moderately scaled leading Hessian eigenvalues, and sharpness histograms concentrated near small loss increases (§4–§6). In contrast, harder settings (e.g., deep Tanh with SGD) show larger top eigenvalues, heavier sharpness tails, and higher connectivity barriers, and they are also the configurations with noticeably worse test performance (§3.1–§3.3, §5–§7). This supports the view that flatness, connectivity, and controlled curvature align with good trainability and generalization.
+
+- **Can we predict optimization difficulty from landscape analysis?**  
+  Our results suggest that landscape diagnostics are informative proxies for optimization difficulty. Architectures and training choices that exhibit sharp spectra, heavy-tailed sharpness, and significant connectivity barriers (deep Tanh, some SGD runs) are precisely those that require more care to optimize and yield less robust performance. Conversely, configurations with smooth interpolation, low barriers, and flatter spectra tend to train reliably and generalize well (ReLU/GELU + Adam, moderate depth/width). While we do not provide a formal predictive model, these consistent patterns indicate that geometry-based metrics can be used to flag potentially difficult optimization regimes before or alongside full training (§3–§7).
+
 \twocolumn
 
 ---
@@ -721,6 +739,18 @@ Together, these extensions would further clarify how architectural and optimizat
 
 ---
 
+## Appendix B.1 — Depth Study Figures
+
+Representative interpolation curves for each depth group (moons dataset, ReLU activation, Adam optimizer, seed 0):
+
+| Hidden Layers | Example Figure |
+| ------------- | -------------- |
+| 1 | ![](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/seed=0/interpolation/init_final_loss.png) |
+| 2 | ![](reports/figures/dataset=moons/arch=2x100/act=relu/opt=adam/seed=0/interpolation/init_final_loss.png) |
+| 4 | ![](reports/figures/dataset=moons/arch=4x100/act=relu/opt=adam/seed=0/interpolation/init_final_loss.png) |
+
+---
+
 ## Appendix C — Width Study Table
 
 | Hidden Size | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
@@ -729,6 +759,19 @@ Together, these extensions would further clarify how architectural and optimizat
 | 250 | moons | gelu, relu, tanh | adam, sgd | 0.0383 | 0.9836 |
 | 50 | moons | gelu, relu, tanh | adam, sgd | 0.0946 | 0.9630 |
 | 500 | moons | gelu, relu, tanh | adam, sgd | 0.0828 | 0.9694 |
+
+---
+
+## Appendix C.1 — Width Study Figures
+
+Representative interpolation curves for each width group (moons dataset, ReLU activation, Adam optimizer, seed 0):
+
+| Hidden Size | Example Figure |
+| ----------- | -------------- |
+| 50 | ![](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/seed=0/interpolation/init_final_loss.png) |
+| 100 | ![](reports/figures/dataset=moons/arch=2x100/act=relu/opt=adam/seed=0/interpolation/init_final_loss.png) |
+| 250 | ![](reports/figures/dataset=moons/arch=4x250/act=relu/opt=adam/seed=0/interpolation/init_final_loss.png) |
+| 500 | ![](reports/figures/dataset=moons/arch=1x500/act=relu/opt=adam/seed=0/interpolation/init_final_loss.png) |
 
 ---
 
@@ -742,12 +785,35 @@ Together, these extensions would further clarify how architectural and optimizat
 
 ---
 
+## Appendix D.1 — Activation Study Figures
+
+Representative interpolation curves illustrating activation effects (moons dataset, 4x100 architecture, Adam optimizer, seed 0):
+
+| Activation | Example Figure |
+| ---------- | -------------- |
+| GELU | ![](reports/figures/dataset=moons/arch=4x100/act=gelu/opt=adam/seed=0/interpolation/init_final_loss.png) |
+| ReLU | ![](reports/figures/dataset=moons/arch=4x100/act=relu/opt=adam/seed=0/interpolation/init_final_loss.png) |
+| Tanh | ![](reports/figures/dataset=moons/arch=4x100/act=tanh/opt=adam/seed=0/interpolation/init_final_loss.png) |
+
+---
+
 ## Appendix E — Optimizer Study Table
 
 | Optimizer | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
 | adam | moons | gelu, relu, tanh | adam | 0.0043 | 0.9997 |
 | sgd | moons | gelu, relu, tanh | sgd | 0.1016 | 0.9605 |
+
+---
+
+## Appendix E.1 — Optimizer Study Figures
+
+Representative interpolation curves contrasting Adam and SGD (moons dataset, 4x250 Tanh architecture, seed 0):
+
+| Optimizer | Example Figure |
+| --------- | -------------- |
+| Adam | ![](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/seed=0/interpolation/init_final_loss.png) |
+| SGD | ![](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/interpolation/init_final_loss.png) |
 
 ---
 

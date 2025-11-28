@@ -135,7 +135,7 @@ tests/            # Unit and smoke tests
     - variable depth and width,
     - activations: ReLU, Tanh, GELU,
     - Xavier or He initialization depending on activation.
-  - `get_predefined_model_config(variant, …)`: arch variants from `Tasks.md`:
+  - `get_predefined_model_config(variant, …)`: predefined architecture variants:
     - `shallow-small` (1 × 50),
     - `shallow-wide` (1 × 500),
     - `deep-small` (4 × 100),
