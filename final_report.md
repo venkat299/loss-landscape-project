@@ -36,7 +36,7 @@ This report is intended as a **single final submission** document. The main body
 The original motivation was to relate loss landscape geometry to optimization dynamics, generalization, and architecture. Using our experiments, we can now answer the guiding questions qualitatively:
 
 - **Why does SGD find generalizable minima despite non-convexity?**  
-  On these synthetic tasks, both SGD and Adam frequently reach near-zero training loss and high test accuracy, especially for ReLU/GELU architectures. Interpolation curves, PCA surfaces, and connectivity plots show that many well-trained solutions lie in broad, low-barrier valleys rather than isolated pits (see §3.1, §3.6, §4 and Appendix F). This helps explain why even a simple optimizer like SGD can find generalizable minima in a highly non-convex landscape—there are large connected regions of good solutions.
+  On these synthetic tasks, both SGD and Adam frequently reach near-zero training loss and high test accuracy, especially for ReLU/GELU architectures. Interpolation curves, PCA surfaces, and connectivity plots show that many well-trained solutions lie in broad, low-barrier valleys rather than isolated pits (see §3.1, §3.6, §4 and Appendix F). This helps explain why even a simple optimizer like SGD can find generalizable minima in a highly non-convex landscape - there are large connected regions of good solutions.
 
 - **How does architecture affect loss landscape topology?**  
   Depth, width, and activation all leave clear signatures in both performance and geometry. Deeper and moderately wide MLPs (2–4 layers, ~100 units) tend to have smoother interpolation paths, broader PCA-plane basins, and lower connectivity barriers than very shallow or extremely wide models (§3.2, §4.1, §4.2, §8). ReLU/GELU architectures systematically exhibit flatter, more connected landscapes than Tanh counterparts, which show sharper curvature and higher barriers, especially at greater depth (§3.3, §4, Appendix F).
@@ -164,29 +164,29 @@ ReLU and GELU perform similarly well, while Tanh underperforms slightly, especia
 
 ### 3.4 Example performance curves
 
-While this report focuses on geometry, it is useful to see how training converges for representative configurations. For example, the following interpolation curves (initial → final weights) implicitly encode how much optimization has reduced loss:
+While this report focuses on geometry, it is useful to see how training converges for representative configurations. For example, the following interpolation curves (initial -> final weights) implicitly encode how much optimization has reduced loss:
 
-- **Interpolation loss — 4x250 Tanh, SGD vs Adam**  
+- **Interpolation loss - 4x250 Tanh, SGD vs Adam**  
   (shown here for a single seed each; additional seeds behave similarly)
 
   - `4x250` Tanh, **SGD**, seed 0:
 
-    ![Interpolation loss — 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/interpolation/init_final_loss.png)
+    ![Interpolation loss - 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/interpolation/init_final_loss.png)
 
   - `4x250` Tanh, **Adam**, seed 0:
 
-    ![Interpolation loss — 4x250 Tanh Adam](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/seed=0/interpolation/init_final_loss.png)
+    ![Interpolation loss - 4x250 Tanh Adam](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/seed=0/interpolation/init_final_loss.png)
 
-- **Interpolation loss — 1x50 GELU, SGD vs Adam**  
+- **Interpolation loss - 1x50 GELU, SGD vs Adam**  
   illustrating width and optimizer effects on a shallow network:
 
   - `1x50` GELU, **SGD**, seed 0:
 
-    ![Interpolation loss — 1x50 GELU SGD](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=sgd/seed=0/interpolation/init_final_loss.png)
+    ![Interpolation loss - 1x50 GELU SGD](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=sgd/seed=0/interpolation/init_final_loss.png)
 
   - `1x50` GELU, **Adam**, seed 0:
 
-    ![Interpolation loss — 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/seed=0/interpolation/init_final_loss.png)
+    ![Interpolation loss - 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/seed=0/interpolation/init_final_loss.png)
 
 These plots illustrate how well-trained models sit at very low-loss endpoints, even when the path between initialization and final weights may pass through regions of higher loss, and how this behavior varies with depth, width, and optimizer.
 
@@ -198,7 +198,7 @@ Prior work emphasizes that on simple, low-dimensional tasks with over-parameteri
 - modest but systematic differences across depth, width, activation, and optimizer choices.
 
 Our results align with these expectations:
-- Deep and moderately wide networks (e.g. 4×100, 2×100) do slightly better on average than very narrow or very wide ones, consistent with the idea that sufficient—but not excessive—capacity smooths the landscape and enlarges connected low-loss basins.
+- Deep and moderately wide networks (e.g. 4x100, 2x100) do slightly better on average than very narrow or very wide ones, consistent with the idea that sufficient - but not excessive - capacity smooths the landscape and enlarges connected low-loss basins.
 - ReLU/GELU activations outperform Tanh, matching standard discussions that saturating activations can make optimization harder and lead to sharper, narrower valleys.
 - Unlike some large-scale results where SGD can generalize better than Adam, on this small moons problem Adam dominates. This is still compatible with prior work: it stresses that optimizer comparisons are highly regime-dependent, and that adaptive methods can excel when the task is simple and regularization is implicit in the architecture and data.
 
@@ -214,19 +214,19 @@ Overall, across all synthetic datasets, the qualitative trends are consistent: d
 
 To visualize these cross-dataset differences, it is helpful to compare PCA-plane loss surfaces and random slices for a fixed architecture/activation/optimizer:
 
-- **PCA loss surface — circles vs. gaussians vs. xor, 4x250 Tanh SGD**
+- **PCA loss surface - circles vs. gaussians vs. xor, 4x250 Tanh SGD**
 
   - Circles:
 
-    ![PCA loss surface — circles 4x250 Tanh SGD](reports/figures/dataset=circles/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
+    ![PCA loss surface - circles 4x250 Tanh SGD](reports/figures/dataset=circles/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
 
   - Gaussians:
 
-    ![PCA loss surface — gaussians 4x250 Tanh SGD](reports/figures/dataset=gaussians/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
+    ![PCA loss surface - gaussians 4x250 Tanh SGD](reports/figures/dataset=gaussians/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
 
   - XOR:
 
-    ![PCA loss surface — xor 4x250 Tanh SGD](reports/figures/dataset=xor/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
+    ![PCA loss surface - xor 4x250 Tanh SGD](reports/figures/dataset=xor/arch=4x250/act=tanh/opt=sgd/pca/pca_surface.png)
 
 In these examples, circles and gaussians exhibit relatively smooth, wide basins around the final solution, whereas XOR tends to show more pronounced ridges and localized curvature, consistent with the performance and connectivity statistics discussed above.
 
@@ -267,17 +267,17 @@ Below are two representative 3D loss surfaces generated by the pipeline:
 - **PCA-plane loss surface (deep, well-performing model)**  
   `4x250` ReLU MLP trained with Adam on moons, visualized in the PCA plane of the weight trajectory:
 
-  ![PCA loss surface — 4x250 ReLU Adam](reports/figures/dataset=moons/arch=4x250/act=relu/opt=adam/pca/pca_surface.png)
+  ![PCA loss surface - 4x250 ReLU Adam](reports/figures/dataset=moons/arch=4x250/act=relu/opt=adam/pca/pca_surface.png)
 
 - **Random-direction 2D slice (deep Tanh model under SGD)**  
   `4x250` Tanh MLP trained with SGD on moons, random 2D slice around the final weights:
 
-  ![Random 2D loss surface — 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/random_slice/random_2d_surface.png)
+  ![Random 2D loss surface - 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/random_slice/random_2d_surface.png)
 
 - **Random-direction 1D slice (shallow GELU model under Adam)**  
   `1x50` GELU MLP trained with Adam on moons, 1D random slice:
 
-  ![Random 1D loss slice — 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/seed=0/random_slice/random_1d.png)
+  ![Random 1D loss slice - 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/seed=0/random_slice/random_1d.png)
 
 Analogous surfaces and slices exist for all other configurations under `reports/figures/…/pca/` and `reports/figures/…/random_slice/`.
 
@@ -311,25 +311,25 @@ Together, these regularization-sensitive views support the intuition that L2 wei
 
 As concrete examples, consider a shallow and a deep configuration:
 
-- **Regularization surfaces — 1x50 GELU, Adam**
+- **Regularization surfaces - 1x50 GELU, Adam**
 
   - Interpolation vs. weight decay:
 
-    ![Regularization interpolation — 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/regularization/regularization_interp_surface.png)
+    ![Regularization interpolation - 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/regularization/regularization_interp_surface.png)
 
   - 2D random slice vs. weight decay (wd0 slice shown in Appendix G):
 
-    ![Regularization random slice (wd0) — 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/regularization/regularization_slice_wd0_surface.png)
+    ![Regularization random slice (wd0) - 1x50 GELU Adam](reports/figures/dataset=moons/arch=1x50/act=gelu/opt=adam/regularization/regularization_slice_wd0_surface.png)
 
-- **Regularization surfaces — 4x250 Tanh, SGD**
+- **Regularization surfaces - 4x250 Tanh, SGD**
 
   - Interpolation vs. weight decay:
 
-    ![Regularization interpolation — 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/regularization/regularization_interp_surface.png)
+    ![Regularization interpolation - 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/regularization/regularization_interp_surface.png)
 
   - 2D random slice vs. weight decay (wd0 slice):
 
-    ![Regularization random slice (wd0) — 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/regularization/regularization_slice_wd0_surface.png)
+    ![Regularization random slice (wd0) - 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/regularization/regularization_slice_wd0_surface.png)
 
 Comparing these charts shows that weight decay has a relatively mild effect on the well-behaved shallow GELU model, but a more visible impact on the sharper deep Tanh+SGD configuration, where the loss surface flattens slightly and barriers along certain directions are reduced.
 
@@ -346,17 +346,17 @@ The resulting probes show:
 
 - **ConvNet interpolation** between initial and final weights has the same qualitative shape as well-trained MLPs: loss decreases smoothly along the path, with no large barriers. This suggests that the combination of convolutional structure and small dataset still yields a broad, easy-to-navigate basin.
 
-  ![CNN interpolation loss — moons ConvNet Adam](reports/figures/experiments_cnn_resnet/cnn/interpolation/cnn_interp_loss.png)
+  ![CNN interpolation loss - moons ConvNet Adam](reports/figures/experiments_cnn_resnet/cnn/interpolation/cnn_interp_loss.png)
 
 - **Residual MLP random slices** resemble the deeper MLP profiles: 1D and 2D slices around the final solution exhibit a central low-loss region with moderately steep directions in a small number of axes. Residual connections do not radically change the local landscape but can make optimization more robust, as expected from skip-connection theory.
 
   - 1D slice:
 
-    ![Residual MLP random 1D slice — moons](reports/figures/experiments_cnn_resnet/resnet/random_slice/resnet_random_1d.png)
+    ![Residual MLP random 1D slice - moons](reports/figures/experiments_cnn_resnet/resnet/random_slice/resnet_random_1d.png)
 
   - 2D slice:
 
-    ![Residual MLP random 2D surface — moons](reports/figures/experiments_cnn_resnet/resnet/random_slice/resnet_random_2d_surface.png)
+    ![Residual MLP random 2D surface - moons](reports/figures/experiments_cnn_resnet/resnet/random_slice/resnet_random_2d_surface.png)
 
 These CNN/ResNet experiments confirm that the training and probing stack applies cleanly to non-MLP architectures, and that the main qualitative conclusions about flat valleys, modest barriers, and activation/optimizer effects extend beyond the specific MLP family used in the full matrix.
 
@@ -371,7 +371,7 @@ The corresponding probes illustrate how increasing input dimensionality and mode
 
 - **High-dimensional CNN interpolation** (init → final weights):
 
-  ![High-dim CNN interpolation loss — synthetic 16×16 Gaussian mixture](reports/figures/experiments_cnn_resnet/highdim/cnn/interpolation/cnn_highdim_interp_loss.png)
+  ![High-dim CNN interpolation loss - synthetic 16x16 Gaussian mixture](reports/figures/experiments_cnn_resnet/highdim/cnn/interpolation/cnn_highdim_interp_loss.png)
 
   The curve remains broadly smooth and monotonic, but the loss profile between endpoints can show a slightly steeper mid-region than in the low-dimensional moons case, reflecting the increased complexity of the task and model.
 
@@ -413,15 +413,15 @@ Below are example top‑k eigenvalue stem plots for a deep architecture under SG
 
 - `4x250` Tanh, **SGD**, seed 0:
 
-  ![Hessian spectrum — 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/hessian/hessian_spectrum.png)
+  ![Hessian spectrum - 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/hessian/hessian_spectrum.png)
 
 - `4x250` Tanh, **Adam**, seed 0:
 
-  ![Hessian spectrum — 4x250 Tanh Adam](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/seed=0/hessian/hessian_spectrum.png)
+  ![Hessian spectrum - 4x250 Tanh Adam](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/seed=0/hessian/hessian_spectrum.png)
 
 - **Shallow ReLU network (1x50), Adam**  
 
-  ![Hessian spectrum — 1x50 ReLU Adam](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/seed=0/hessian/hessian_spectrum.png)
+  ![Hessian spectrum - 1x50 ReLU Adam](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/seed=0/hessian/hessian_spectrum.png)
 
 Comparing spectra like these across configurations helps reveal whether particular designs or optimizers tend to concentrate curvature in a few stiff directions or distribute it more evenly.
 
@@ -432,7 +432,7 @@ Existing literature summarizes several robust empirical findings:
 - Architectural and optimization choices (e.g. depth, batch normalization, optimizer) can significantly change the scale of the largest eigenvalues and overall conditioning.
 
 Our spectra conform to this qualitative pattern:
-- For both SGD and Adam runs, stem plots show only a handful of noticeably large eigenvalues and many very small ones, even for deeper models—precisely what this literature describes for over-parameterized networks.
+- For both SGD and Adam runs, stem plots show only a handful of noticeably large eigenvalues and many very small ones, even for deeper models - precisely what this literature describes for over-parameterized networks.
 - Comparing Tanh vs. ReLU/GELU, and SGD vs. Adam, we often see that underperforming configurations (e.g. deep Tanh with SGD or Adam) have noticeably larger leading eigenvalues, indicating sharper curvature. This matches the claim that certain training choices can drive solutions into narrower valleys that may be harder to optimize and less robust.
 - In contrast, high-performing ReLU/GELU networks trained with Adam tend to have more tempered top eigenvalues, suggesting better-conditioned local landscapes in line with expectations from the Hessian-focused literature (e.g. PyHessian, Ghorbani et al.).
 
@@ -467,15 +467,15 @@ The following histograms visualize the distribution of loss increases under epsi
 
 - `4x250` Tanh, **SGD**, seed 0:
 
-  ![Sharpness histogram — 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/sharpness/sharpness_hist.png)
+  ![Sharpness histogram - 4x250 Tanh SGD](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/seed=0/sharpness/sharpness_hist.png)
 
 - `4x250` Tanh, **Adam**, seed 0:
 
-  ![Sharpness histogram — 4x250 Tanh Adam](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/seed=0/sharpness/sharpness_hist.png)
+  ![Sharpness histogram - 4x250 Tanh Adam](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/seed=0/sharpness/sharpness_hist.png)
 
 - `1x50` ReLU, **Adam**, seed 0:
 
-  ![Sharpness histogram — 1x50 ReLU Adam](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/seed=0/sharpness/sharpness_hist.png)
+  ![Sharpness histogram - 1x50 ReLU Adam](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/seed=0/sharpness/sharpness_hist.png)
 
 These charts illustrate how often perturbations of a given magnitude lead to significant loss increases, providing a more global view of flatness than eigenvalues alone.
 
@@ -516,11 +516,11 @@ Linear connectivity curves make barrier heights visually obvious. Below are exam
 
 - **SGD**, seeds 0 → 1:
 
-  ![Connectivity — 4x250 Tanh SGD, seed 0→1](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/connectivity/seed=0_to_seed=1/linear_loss.png)
+  ![Connectivity - 4x250 Tanh SGD, seed 0->1](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=sgd/connectivity/seed=0_to_seed=1/linear_loss.png)
 
-- **Adam**, seeds 0 → 1:
+- **Adam**, seeds 0 -> 1:
 
-  ![Connectivity — 4x250 Tanh Adam, seed 0→1](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/connectivity/seed=0_to_seed=1/linear_loss.png)
+  ![Connectivity - 4x250 Tanh Adam, seed 0->1](reports/figures/dataset=moons/arch=4x250/act=tanh/opt=adam/connectivity/seed=0_to_seed=1/linear_loss.png)
 
 For configurations where these curves remain low and smooth, independently trained models are connected by low-loss paths; large spikes indicate higher energy barriers between modes.
 
@@ -531,15 +531,15 @@ Prior work by Garipov, Draxler, and subsequent studies stresses that:
 - permutation symmetries, especially in shallow MLPs, can obscure this connectivity unless neurons are aligned.
 
 Our connectivity results follow this narrative:
-- For many ReLU/GELU configurations, especially under Adam, linear paths between seeds have small barriers, and the aggregated statistics in Appendix F show mean test barriers close to zero—consistent with the “essentially no barriers” phenomenon.
+- For many ReLU/GELU configurations, especially under Adam, linear paths between seeds have small barriers, and the aggregated statistics in Appendix F show mean test barriers close to zero - consistent with the “essentially no barriers” phenomenon.
 - For some harder cases (e.g. deep Tanh networks under Adam, where curvature and sharpness are also high), the connectivity summary reveals larger mean and maximum barriers, indicating that not all minima are equally well connected in weight space.
 - Applying a simple neuron permutation alignment for 1-hidden-layer models materially reduces apparent barriers in that regime, mirroring the point that respecting permutation invariance is important when interpreting connectivity experiments.
 
 As a contrast to the `4x250` Tanh case, consider a shallow configuration where connectivity is much easier:
 
-- **Connectivity — 1x50 ReLU Adam, seed 0→1**  
+- **Connectivity - 1x50 ReLU Adam, seed 0->1**  
 
-  ![Connectivity — 1x50 ReLU Adam, seed 0→1](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/connectivity/seed=0_to_seed=1/linear_loss.png)
+  ![Connectivity - 1x50 ReLU Adam, seed 0->1](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/connectivity/seed=0_to_seed=1/linear_loss.png)
 
 Here the loss curve remains essentially flat along the path, visually confirming the tiny barriers reported in Appendix F for this configuration.
 
@@ -567,13 +567,13 @@ Combined with the landscape probes, these results support the narrative that:
 
 To visualize how architecture affects the geometry, we compare PCA-plane loss surfaces for a shallow and a deeper network with the same activation and optimizer:
 
-- **PCA loss surface — 1x50 ReLU Adam (shallow)**  
+- **PCA loss surface - 1x50 ReLU Adam (shallow)**  
 
-  ![PCA loss surface — 1x50 ReLU Adam](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/pca/pca_surface.png)
+  ![PCA loss surface - 1x50 ReLU Adam](reports/figures/dataset=moons/arch=1x50/act=relu/opt=adam/pca/pca_surface.png)
 
-- **PCA loss surface — 4x100 ReLU Adam (deeper)**  
+- **PCA loss surface - 4x100 ReLU Adam (deeper)**  
 
-  ![PCA loss surface — 4x100 ReLU Adam](reports/figures/dataset=moons/arch=4x100/act=relu/opt=adam/pca/pca_surface.png)
+  ![PCA loss surface - 4x100 ReLU Adam](reports/figures/dataset=moons/arch=4x100/act=relu/opt=adam/pca/pca_surface.png)
 
 Both achieve excellent performance, but the deeper network’s PCA-plane often shows a broader, more gently sloping basin around the solution, while the shallow network can exhibit slightly sharper transitions away from the minimum. This qualitative difference matches the depth/width trends in performance and supports the idea that depth can smooth and enlarge connected low-loss regions.
 
@@ -632,7 +632,7 @@ Together, these extensions would further clarify how architectural and optimizat
 \clearpage
 \onecolumn
 
-## Appendix A — Full Per-Run Metrics
+## Appendix A - Full Per-Run Metrics
 
 | Dataset | Architecture | Activation | Optimizer | Seed | Train Loss | Test Loss | Test Accuracy |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -729,7 +729,17 @@ Together, these extensions would further clarify how architectural and optimizat
 
 ---
 
-## Appendix B — Depth Study Table
+## Appendix A.1 - Multigrid Summary Figure
+
+A compact multigrid visualization of mean test accuracy across datasets, architectures, activations, and optimizers:
+
+![Appendix A multigrid - test accuracy by configuration](reports/figures/appendix_a_multigrid.png)
+
+Each panel corresponds to a dataset; rows index architectures (e.g., 1x50, 2x100, 4x250) and columns index (activation, optimizer) combinations, with color indicating mean test accuracy across seeds.
+
+---
+
+## Appendix B - Depth Study Table
 
 | Hidden Layers | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
@@ -739,7 +749,7 @@ Together, these extensions would further clarify how architectural and optimizat
 
 ---
 
-## Appendix B.1 — Depth Study Figures
+## Appendix B.1 - Depth Study Figures
 
 Representative interpolation curves for each depth group (moons dataset, ReLU activation, Adam optimizer, seed 0):
 
@@ -751,7 +761,7 @@ Representative interpolation curves for each depth group (moons dataset, ReLU ac
 
 ---
 
-## Appendix C — Width Study Table
+## Appendix C - Width Study Table
 
 | Hidden Size | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
@@ -762,7 +772,7 @@ Representative interpolation curves for each depth group (moons dataset, ReLU ac
 
 ---
 
-## Appendix C.1 — Width Study Figures
+## Appendix C.1 - Width Study Figures
 
 Representative interpolation curves for each width group (moons dataset, ReLU activation, Adam optimizer, seed 0):
 
@@ -775,7 +785,7 @@ Representative interpolation curves for each width group (moons dataset, ReLU ac
 
 ---
 
-## Appendix D — Activation Study Table
+## Appendix D - Activation Study Table
 
 | Activation | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
@@ -785,7 +795,7 @@ Representative interpolation curves for each width group (moons dataset, ReLU ac
 
 ---
 
-## Appendix D.1 — Activation Study Figures
+## Appendix D.1 - Activation Study Figures
 
 Representative interpolation curves illustrating activation effects (moons dataset, 4x100 architecture, Adam optimizer, seed 0):
 
@@ -797,7 +807,7 @@ Representative interpolation curves illustrating activation effects (moons datas
 
 ---
 
-## Appendix E — Optimizer Study Table
+## Appendix E - Optimizer Study Table
 
 | Optimizer | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
@@ -806,7 +816,7 @@ Representative interpolation curves illustrating activation effects (moons datas
 
 ---
 
-## Appendix E.1 — Optimizer Study Figures
+## Appendix E.1 - Optimizer Study Figures
 
 Representative interpolation curves contrasting Adam and SGD (moons dataset, 4x250 Tanh architecture, seed 0):
 
@@ -817,7 +827,7 @@ Representative interpolation curves contrasting Adam and SGD (moons dataset, 4x2
 
 ---
 
-## Appendix F — Connectivity Summary
+## Appendix F - Connectivity Summary
 
 | Dataset | Architecture | Activation | Optimizer | Num Pairs | Mean Train Barrier | Mean Test Barrier | Max Train Barrier | Max Test Barrier |
 | ------- | ------------ | ---------- | --------- | --------- | ------------------- | ------------------ | ------------------- | ------------------ |
@@ -854,7 +864,7 @@ Representative interpolation curves contrasting Adam and SGD (moons dataset, 4x2
 
 ---
 
-## Appendix G — Regularization Study Table
+## Appendix G - Regularization Study Table
 
 Configurations for which we trained models with multiple L2 weight-decay values and generated regularization-sensitive interpolation and random-slice surfaces. For each configuration we list the shared dataset, architecture, activation, optimizer, and the set of weight decays used, along with direct thumbnails of the corresponding 3D interpolation and random-slice surfaces under `reports/figures/.../regularization/`.
 
