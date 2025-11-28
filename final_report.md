@@ -1,5 +1,5 @@
-[TOC]
-
+\onecolumn
+\tableofcontents
 # Loss Landscape Geometry of MLPs on Synthetic Datasets
 
 ## 1. Overview
@@ -8,6 +8,7 @@ This project builds a complete, reproducible pipeline to study how the **loss la
 We train a matrix of MLPs on synthetic classification tasks, probe the surrounding loss landscape using several complementary methods, and summarize both performance and geometry in figures and reports.
 
 Concretely, the pipeline:
+
 - trains MLPs of varying depth/width, activations (ReLU, Tanh, GELU), and optimizers (SGD, Adam) on 2D synthetic datasets (here: moons);
 - saves checkpoints and metrics for each configuration and seed;
 - probes the loss landscape around trained solutions using interpolation, random directional slices, Hessian spectrum estimation, sharpness metrics, PCA-based projections, and mode connectivity analysis;
@@ -17,16 +18,18 @@ This report is intended as a **single final submission** document. The main body
 
 ### Key Findings at a Glance
 
-| Axis | Key Finding | Evidence (Sections / Reports) |
-| ---- | ----------- | ----------------------------- |
-| Datasets (moons, circles, gaussians, xor) | All tasks are solvable with high accuracy by over-parameterized MLPs; circles/gaussians are easiest, XOR is most sensitive to architecture/activation. | §3.1, §3.6; `summary.md`, `connectivity_study.md` |
-| Depth | Deeper networks (2–4 layers) achieve slightly better average test accuracy and smoother connectivity than very shallow ones. | §3.2; Appendix C (`depth_study.md`) |
-| Width | Moderate width (100 units) outperforms very narrow (50) and very wide (500) models on average, suggesting a “just enough capacity” sweet spot. | §3.2; Appendix D (`width_study.md`) |
-| Activation | ReLU and GELU consistently outperform Tanh in both performance and landscape smoothness; Tanh solutions tend to be sharper and have higher connectivity barriers. | §3.3, §4; Appendix D (`activation_study.md`), `connectivity_study.md` |
-| Optimizer | Adam dominates SGD on these small synthetic tasks, reaching lower loss and slightly better accuracy, especially for Tanh; SGD solutions are often slightly sharper. | §3.1, §5–6; Appendix E (`optimizer_study.md`), Hessian/sharpness figures |
-| Regularization (weight decay) | Moving from 0 to modest L2 (≈1e‑3) only mildly changes test accuracy but noticeably reshapes local geometry, smoothing interpolation and random-slice surfaces around some solutions. | §3.1, §4.3; Appendix G (`regularization_study.md`) |
-| Landscape geometry | Well-trained models typically lie in broad valleys with low barriers between seeds (especially ReLU/GELU + Adam); underperforming Tanh configs show sharper, more irregular basins. | §4, §5–6; `connectivity_study.md`, Hessian and sharpness plots |
-| CNN & residual MLP | ConvNet and residual MLP probes show interpolation/slice shapes very similar to deep MLPs, confirming that the qualitative landscape picture extends beyond plain fully connected nets. | §2.2, §4.4; `run_cnn_resnet_example.py` figures |
+| Axis | Summary (Key Finding + Evidence) |
+| ---- | -------------------------------- |
+| Datasets (moons, circles, gaussians, xor) | All tasks are solvable with high accuracy by over-parameterized MLPs; circles/gaussians are easiest, XOR is most sensitive to architecture/activation (see §3.1, §3.6 and the connectivity statistics in Appendix F). |
+| Depth | Deeper networks (2–4 layers) achieve slightly better average test accuracy and smoother connectivity than very shallow ones (evidence in §3.2 and Appendix C). |
+| Width | Moderate width (100 units) outperforms very narrow (50) and very wide (500) models on average, suggesting a "just enough capacity" sweet spot (see §3.2 and Appendix D). |
+| Activation | ReLU and GELU consistently outperform Tanh in both performance and landscape smoothness; Tanh solutions tend to be sharper and have higher connectivity barriers (see §3.3, §4 and the connectivity summary in Appendix F). |
+| Optimizer | Adam dominates SGD on these small synthetic tasks, reaching lower loss and slightly better accuracy, especially for Tanh; SGD solutions are often slightly sharper (evidence in §3.1, §5–6 and the optimizer summary in Appendix E). |
+| Regularization (weight decay) | Moving from 0 to modest L2 (~1e-3) only mildly changes test accuracy but noticeably reshapes local geometry, smoothing interpolation and random-slice surfaces around some solutions (see §3.1, §4.3 and Appendix G). |
+| Landscape geometry | Well-trained models typically lie in broad valleys with low barriers between seeds (especially ReLU/GELU + Adam); underperforming Tanh configs show sharper, more irregular basins (evidence across §4, §5–6 and the connectivity, Hessian, and sharpness summaries). |
+| CNN & residual MLP | ConvNet and residual MLP probes show interpolation/slice shapes very similar to deep MLPs, confirming that the qualitative landscape picture extends beyond plain fully connected nets (see §2.2, §4.4–4.5). |
+
+\twocolumn
 
 ---
 
@@ -35,21 +38,24 @@ This report is intended as a **single final submission** document. The main body
 ### 2.1 Datasets
 
 All experiments summarized here are run on the **two-moons** synthetic dataset:
+
 - 2D inputs with two interleaving half-moon clusters.
 - Train/test splits with normalization based on the training statistics.
 - A small amount of Gaussian noise added to inputs, as configured in `DatasetConfig`.
 
-The code also supports concentric circles, Gaussian mixtures (2–4 clusters), and XOR-like datasets via `project/data/datasets.py`. The same pipeline can be applied to these by enabling `--include-circles` / `--include-xor` when running the training sweep.
+The code also supports concentric circles, Gaussian mixtures (2–4 clusters), and XOR-like datasets; the same pipeline can be applied to these by enabling the corresponding dataset flags when running the training sweep.
 
 ### 2.2 Model Architectures
 
-All models are fully-connected MLP classifiers implemented in `project/models/mlp.py`:
+All models are fully-connected MLP classifiers:
+
 - variable depth and width with a shared hidden size per model,
 - activations: **ReLU**, **Tanh**, or **GELU**,
 - He (Kaiming) initialization for ReLU/GELU, Xavier for Tanh,
 - output layer is a linear classifier mapping to 2 logits.
 
 Predefined MLP architecture variants (from `get_predefined_model_config`) are:
+
 - `shallow-small`: 1 hidden layer × 50 units (1×50),
 - `shallow-wide`: 1 hidden layer × 500 units (1×500),
 - `deep-small`: 4 hidden layers × 100 units (4×100),
@@ -58,15 +64,17 @@ Predefined MLP architecture variants (from `get_predefined_model_config`) are:
 
 These cover the 20k–100k parameter regime specified in the project tasks.
 
-In addition to these MLPs, the codebase includes two demonstration architectures in `project/models`:
-- `ConvNetClassifier` (with `CNNConfig`) in `cnn.py`, a small convolutional classifier that operates on 2D inputs reshaped into images.
-- `ResidualMLPClassifier` (with `ResidualMLPConfig`) in `resnet.py`, an MLP-style network with residual blocks.
+In addition to these MLPs, the codebase includes two demonstration architectures:
 
-These models are exercised in `project/experiments/run_cnn_resnet_example.py` to show that the same training and landscape-probing stack applies beyond plain MLPs. They are not part of the main full-matrix sweep summarized in this report, but use the same loss, optimizers, and probes.
+- a small convolutional classifier that operates on 2D inputs reshaped into images.
+- a residual MLP-style network with several residual blocks.
+
+These models are used in a dedicated CNN/ResNet experiment to show that the same training and landscape-probing stack applies beyond plain MLPs. They are not part of the main full-matrix sweep summarized in this report, but use the same loss, optimizers, and probes.
 
 ### 2.3 Optimization and Training
 
-Training is handled by `project/experiments/train_model.py` and orchestrated by `project/experiments/run_full_matrix.py`:
+Training is handled by a reusable training loop and orchestrated by an experiment driver script:
+
 - Optimizers:
   - **SGD** with momentum and weight decay,
   - **Adam** with weight decay.
@@ -91,17 +99,19 @@ uv run python -m project.experiments.run_full_matrix \
 
 ## 3. Model Performance Summary
 
-The auto-generated `reports/summary.md` and `reports/*_study.md` files summarize final test performance for each configuration. Here we highlight a few key trends on the moons dataset and other synthetic tasks; complete tables are in **Appendix A–G**.
+Automatically generated performance summaries (one overall table plus several study tables) capture final test metrics for each configuration. Here we highlight a few key trends on the moons dataset and other synthetic tasks; complete tables are in **Appendix A–G**.
 
 ### 3.1 Overall accuracy and optimizer effects
 
 Across all architectures, activations, and optimizers:
-- Many configurations achieve **near-perfect test accuracy** on moons (≈ 1.0), especially when using **Adam** and non-saturating activations (ReLU, GELU).
+
+- Many configurations achieve **near-perfect test accuracy** on moons (~1.0), especially when using **Adam** and non-saturating activations (ReLU, GELU).
 - The worst-performing configurations still achieve strong performance, but with noticeable gaps relative to the best.
 
 From the optimizer study (see Appendix E):
-- Mean test accuracy for **Adam**: ≈ **0.9997** with mean test loss ≈ **0.0043**.
-- Mean test accuracy for **SGD**: ≈ **0.9605** with mean test loss ≈ **0.1016**.
+
+- Mean test accuracy for **Adam**: ~**0.9997** with mean test loss ~**0.0043**.
+- Mean test accuracy for **SGD**: ~**0.9605** with mean test loss ~**0.1016**.
 
 On this problem and with the chosen hyperparameters, Adam is consistently closer to interpolating the dataset, while SGD sometimes converges to slightly less optimal solutions (especially when coupled with Tanh).
 
@@ -110,26 +120,27 @@ To isolate the effect of explicit L2 regularization, we also train a subset of a
 ### 3.2 Depth and width effects
 
 From the depth study (Appendix C):
-- 1 hidden layer (depth 1): mean test accuracy ≈ **0.966**.
-- 2 hidden layers (depth 2): mean test accuracy ≈ **0.985**.
-- 4 hidden layers (depth 4): mean test accuracy ≈ **0.992**.
+
+- 1 hidden layer (depth 1): mean test accuracy ~**0.966**.
+- 2 hidden layers (depth 2): mean test accuracy ~**0.985**.
+- 4 hidden layers (depth 4): mean test accuracy ~**0.992**.
 
 Deeper networks generally perform better, suggesting that additional depth helps represent decision boundaries for the moons dataset more robustly, even though the task is relatively simple.
 
 From the width study (Appendix D):
-- Width 50: mean test accuracy ≈ **0.963**.
-- Width 100: mean test accuracy ≈ **0.992**.
-- Width 250: mean test accuracy ≈ **0.984**.
-- Width 500: mean test accuracy ≈ **0.969**.
+- Width 50: mean test accuracy ~**0.963**.
+- Width 100: mean test accuracy ~**0.992**.
+- Width 250: mean test accuracy ~**0.984**.
+- Width 500: mean test accuracy ~**0.969**.
 
-Moderate width (100 units) performs best overall. Very narrow networks (50 units) and very wide ones (500 units) do slightly worse on average, indicating that “just enough” capacity can be beneficial even for simple tasks.
+Moderate width (100 units) performs best overall. Very narrow networks (50 units) and very wide ones (500 units) do slightly worse on average, indicating that "just enough" capacity can be beneficial even for simple tasks.
 
 ### 3.3 Activation and optimizer interactions
 
 From the activation study (Appendix D):
-- ReLU: mean test accuracy ≈ **0.994**.
-- GELU: mean test accuracy ≈ **0.991**.
-- Tanh: mean test accuracy ≈ **0.955**.
+- ReLU: mean test accuracy ~**0.994**.
+- GELU: mean test accuracy ~**0.991**.
+- Tanh: mean test accuracy ~**0.955**.
 
 ReLU and GELU perform similarly well, while Tanh underperforms slightly, especially in combination with SGD. This is consistent with the known difficulty of optimizing deeper Tanh networks without additional tricks (e.g. careful initialization or adaptive optimizers).
 
@@ -218,8 +229,8 @@ Key visualizations:
    - These curves reveal whether the path is smooth and convex-like or contains sharp barriers.
 
 2. **Random directional slices**:
-   - 1D slices: loss as a function of α along a single random direction `d`, normalized per layer.
-   - 2D slices: loss over a grid in (α, β) for two orthonormalized random directions.
+   - 1D slices: loss as a function of an amplitude parameter (alpha) along a single random direction `d`, normalized per layer.
+   - 2D slices: loss over a grid in (alpha, beta) for two orthonormalized random directions.
    - 3D surface and contour plots help visualize local valleys, ridges, and saddle-like structure around trained solutions.
 
 3. **PCA-plane projections**:
@@ -270,7 +281,7 @@ The regularization sweep compares loss landscapes for the same dataset/architect
 - **Interpolation surfaces** over `(alpha, weight_decay)` between initialization and final weights.
 - **2D random-slice surfaces** over `(alpha, beta, weight_decay)` around the final solution.
 
-The regularization study (`reports/regularization_study.md`, Appendix G) reveals several consistent behaviors:
+The regularization study (summarized in Appendix G) reveals several consistent behaviors:
 
 - Moving from **no weight decay to modest decay (e.g. 1e‑3)** typically:
   - slightly increases the minimum achievable train loss along the interpolation path,
@@ -306,7 +317,7 @@ Comparing these charts shows that weight decay has a relatively mild effect on t
 
 ### 4.4 CNN and residual MLP landscape probes
 
-To check that our tools generalize beyond plain MLPs, `project/experiments/run_cnn_resnet_example.py` trains:
+To check that our tools generalize beyond plain MLPs, a dedicated experiment script trains:
 
 - a small **ConvNet** on moons (2D inputs reshaped to 1×2×1 “images”), and
 - a **Residual MLP** with several residual blocks,
@@ -331,16 +342,43 @@ The resulting probes show:
 
 These CNN/ResNet experiments confirm that the training and probing stack applies cleanly to non-MLP architectures, and that the main qualitative conclusions about flat valleys, modest barriers, and activation/optimizer effects extend beyond the specific MLP family used in the full matrix.
 
+### 4.5 High-dimensional CNN and residual MLP landscapes
+
+To probe more complex, high-dimensional and potentially jagged surfaces, the same script also trains:
+
+- a deeper/wider **ConvNet** on a 256-dimensional synthetic Gaussian mixture (inputs reshaped to 1×16×16), and
+- a deeper/wider **Residual MLP** on the same task.
+
+The corresponding probes illustrate how increasing input dimensionality and model capacity changes the landscape:
+
+- **High-dimensional CNN interpolation** (init → final weights):
+
+  ![High-dim CNN interpolation loss — synthetic 16×16 Gaussian mixture](reports/figures/experiments_cnn_resnet/highdim/cnn/interpolation/cnn_highdim_interp_loss.png)
+
+  The curve remains broadly smooth and monotonic, but the loss profile between endpoints can show a slightly steeper mid-region than in the low-dimensional moons case, reflecting the increased complexity of the task and model.
+
+- **High-dimensional residual MLP random slices**:
+
+  - 1D slice:
+
+    ![High-dim residual MLP random 1D slice](reports/figures/experiments_cnn_resnet/highdim/resnet/random_slice/resnet_highdim_random_1d.png)
+
+  - 2D slice:
+
+    ![High-dim residual MLP random 2D surface](reports/figures/experiments_cnn_resnet/highdim/resnet/random_slice/resnet_highdim_random_2d_surface.png)
+
+  Compared to the moons-based residual MLP, these slices typically show a narrower low-loss basin and loss that rises more quickly away from the optimum along some directions, consistent with more pronounced curvature in certain axes and a more structured, rugged surrounding landscape.
+
 ---
 
 ## 5. Hessian & Curvature Analysis
 
-Hessian-related utilities in `project/landscape/hessian.py` estimate:
+Hessian-related utilities in the landscape module estimate:
 - **Hessian–vector products** via double backpropagation,
 - **top‑k eigenvalues** via power iteration,
 - **Hessian trace** via Hutchinson’s estimator.
 
-The script `run_probes_and_reports.py` computes these for the final model of each run and stores:
+The probe driver computes these for the final model of each run and stores:
 - numerical results under `hessian/spectrum.json`,
 - stem plots of the top‑k eigenvalues under `hessian/hessian_spectrum.png`.
 
@@ -384,14 +422,14 @@ Our spectra conform to this qualitative pattern:
 
 ## 6. Flatness / Sharpness Comparison
 
-Sharpness probes in `project/landscape/sharpness.py` implement an ε‑sharpness metric:
+Sharpness probes implement an epsilon-sharpness metric:
 - sample random directions in parameter space,
 - normalize them per layer,
-- scale by a radius ε,
-- measure the distribution of loss increases `L(θ + Δθ) − L(θ)`.
+- scale by a radius epsilon,
+- measure the distribution of loss increases `L(theta + delta_theta) - L(theta)`.
 
-For each configuration, `run_probes_and_reports.py`:
-- computes the maximum observed loss increase (ε‑sharpness),
+For each configuration, the probe driver:
+- computes the maximum observed loss increase (epsilon-sharpness),
 - records the full distribution of increases,
 - saves histograms into `sharpness/sharpness_hist.png`,
 - logs numeric values into `sharpness/sharpness.json`.
@@ -403,11 +441,11 @@ By comparing these across configurations, you can:
   - activation (e.g. ReLU vs Tanh),
   - optimizer (SGD vs Adam).
 
-This complements Hessian spectra: the Hessian captures local quadratic curvature, while the sampled ε‑sharpness probes how loss behaves under finite-radius perturbations in normalized directions.
+This complements Hessian spectra: the Hessian captures local quadratic curvature, while the sampled epsilon-sharpness probes how loss behaves under finite-radius perturbations in normalized directions.
 
 ### 6.1 Example sharpness histograms
 
-The following histograms visualize the distribution of loss increases under ε‑radius perturbations:
+The following histograms visualize the distribution of loss increases under epsilon-radius perturbations:
 
 - `4x250` Tanh, **SGD**, seed 0:
 
@@ -438,8 +476,8 @@ Our sharpness histograms broadly align with the classical intuition:
 
 ## 7. Connectivity Findings
 
-Mode connectivity utilities in `project/landscape/connectivity.py` are used at the group level:
-- For each (dataset, architecture, activation, optimizer) combination, `run_probes_and_reports.py`:
+Mode connectivity utilities are used at the group level:
+- For each (dataset, architecture, activation, optimizer) combination, the probe driver:
   - takes final checkpoints from multiple seeds,
   - optionally aligns 1-hidden-layer models via simple neuron permutation,
   - evaluates linear paths between seeds in weight space,
@@ -494,12 +532,12 @@ Here the loss curve remains essentially flat along the path, visually confirming
 Using the auto-generated depth and width studies, we can summarize how architecture affects both performance and (indirectly) geometry.
 
 From the depth study:
-- Increasing depth from 1 → 2 → 4 layers improves mean test accuracy from ≈ 96.6% → 98.5% → 99.2%.
+- Increasing depth from 1 → 2 → 4 layers improves mean test accuracy from ~96.6% → 98.5% → 99.2%.
 - This suggests deeper networks are more robust to the added noise and better capture the non-linear decision boundary on moons.
 
 From the width study:
-- Width 100 performs best on average (≈ 99.2% mean test accuracy),
-- Very narrow (50) and very wide (500) networks show modest degradation (≈ 96–97%),
+- Width 100 performs best on average (~99.2% mean test accuracy),
+- Very narrow (50) and very wide (500) networks show modest degradation (~96–97%),
 - Width 250 lies in between.
 
 Combined with the landscape probes, these results support the narrative that:
@@ -527,11 +565,11 @@ Both achieve excellent performance, but the deeper network’s PCA-plane often s
 
 From the optimizer study:
 - **Adam**:
-  - mean test loss ≈ 0.0043,
-  - mean test accuracy ≈ 99.97%.
+  - mean test loss ~0.0043,
+  - mean test accuracy ~99.97%.
 - **SGD**:
-  - mean test loss ≈ 0.1016,
-  - mean test accuracy ≈ 96.05%.
+  - mean test loss ~0.1016,
+  - mean test accuracy ~96.05%.
 
 On this particular setup, Adam is clearly stronger in terms of raw performance, especially for Tanh networks where SGD often underperforms. The landscape probes allow you to go further:
 - Hessian spectra for Adam vs SGD can reveal whether one tends to land in regions with larger leading eigenvalues.
@@ -544,34 +582,42 @@ Together, these views help bridge the gap between **optimizer behavior** (how tr
 
 ## 10. Conclusions and Future Work
 
-This project assembles a modular, end-to-end pipeline for studying loss landscapes of modest-sized MLPs on synthetic classification tasks. It:
-- trains a comprehensive experiment matrix over architectures, activations, and optimizers;
+This project assembles a modular, end-to-end pipeline for studying loss landscapes of modest-sized neural networks on synthetic classification tasks. It:
+- trains a comprehensive experiment matrix over MLP architectures, activations, optimizers, and multiple synthetic datasets;
 - exposes a battery of landscape probes (interpolation, random slices, Hessian, sharpness, PCA, connectivity);
+- extends these probes to CNN and residual MLP architectures, including higher-dimensional synthetic inputs;
 - generates figures and Markdown reports that summarize both performance and geometry.
 
-On the moons dataset, the experiments confirm that:
-- architecture matters: deeper and moderately wide networks generalize best;
-- activation choice matters: ReLU and GELU outperform Tanh in this setup;
-- optimizer choice is crucial: Adam significantly outperforms SGD under the given hyperparameters.
+Across moons, circles, Gaussian mixtures, and XOR, the experiments confirm that:
+- **architecture matters**: deeper and moderately wide networks (e.g., 2×100, 4×100) generally achieve the best average performance and smoother connectivity, while very narrow or very wide models show modest degradation and different curvature patterns;
+- **activation choice matters**: ReLU and GELU consistently outperform Tanh in this regime, both in terms of final metrics and landscape smoothness, while Tanh networks tend to land in sharper, more irregular basins with higher connectivity barriers;
+- **optimizer choice is crucial**: Adam significantly outperforms SGD under the chosen hyperparameters, especially for Tanh networks, and often finds better-conditioned minima as indicated by Hessian spectra and sharpness histograms;
+- **regularization gently reshapes geometry**: moving from zero to modest L2 weight decay (~1e-3) typically leaves test accuracy nearly unchanged but smooths interpolation curves and random-slice surfaces around some solutions, nudging optimization toward slightly broader basins;
+- **landscape geometry is broadly benign but structured**: well-trained models (especially ReLU/GELU + Adam) lie in wide valleys with low barriers between seeds, while underperforming configurations (notably deep Tanh) exhibit larger leading eigenvalues, heavier sharpness tails, and higher connectivity barriers, indicating sharper and more fragmented local structure;
+- **CNN and residual MLP probes mirror MLP behavior**: both on low-dimensional moons and higher-dimensional Gaussian mixtures, ConvNet and residual MLP interpolations and slices resemble those of deep MLPs, suggesting that the qualitative picture of flat valleys, modest barriers, and activation/optimizer effects extends beyond fully connected architectures.
 
-The landscape analysis tools provide the geometric context needed to interpret these performance differences, although a full quantitative comparison of curvature and sharpness across all configurations is left to the reader via the generated figures and JSON logs.
+The landscape analysis tools provide the geometric context needed to interpret these performance differences, and the generated figures/JSON logs allow more fine-grained quantitative comparisons of curvature and sharpness across configurations.
 
 Future directions include:
-- extending the pipeline to **circles**, **Gaussian clusters**, and **XOR** datasets (and beyond),
-- applying the same probes to **convolutional** or **residual** architectures,
-- incorporating additional metrics (e.g. path-based flatness or PAC-Bayes-inspired measures),
-- scaling up to larger models and higher-dimensional datasets while preserving the modular structure of the code.
+- **richer datasets and tasks**: applying the pipeline to more challenging synthetic distributions (e.g., overlapping, non-Gaussian, or manifold-structured data) and to small real-world image datasets, to probe truly rugged, high-dimensional loss surfaces;
+- **larger and more diverse architectures**: exploring deeper/wider CNNs and residual networks, as well as architectures with normalization, attention, or other modern components, to test whether the same geometry patterns persist;
+- **enhanced geometric metrics**: adding path-based flatness measures, PAC-Bayes-inspired distances from initialization, and multi-point mode connectivity beyond linear paths, to obtain more nuanced characterizations of basins and barriers;
+- **systematic sharpness/curvature studies**: integrating automated summaries that correlate Hessian spectra, epsilon-sharpness, and connectivity barriers with generalization gaps across all runs, rather than relying solely on per-configuration inspection;
+- **scaling and optimization regimes**: varying batch size, learning-rate schedules, and regularization strength to deliberately seek sharper or more jagged minima, and studying how these regimes modify the observed landscape geometry.
 
-Together, these extensions would further illuminate how architectural and optimization choices shape the loss landscape, and how that geometry in turn governs generalization in deep learning systems.
+Together, these extensions would further clarify how architectural and optimization choices shape loss landscapes in higher-dimensional, more realistic settings, and how that geometry in turn governs generalization and robustness in deep learning systems.
 
 ---
 
 # Appendices
 
-## Appendix A — Full Per-Run Metrics (from `reports/summary.md`)
+\clearpage
+\onecolumn
+
+## Appendix A — Full Per-Run Metrics
 
 | Dataset | Architecture | Activation | Optimizer | Seed | Train Loss | Test Loss | Test Accuracy |
-| ------- | ------------ | ---------- | --------- | ---- | ---------- | --------- | ------------- |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | moons | 4x250 | gelu | adam | 0 | 0.0002 | 0.0000 | 1.0000 |
 | moons | 4x250 | gelu | adam | 1 | 0.0001 | 0.0000 | 1.0000 |
 | moons | 4x250 | gelu | adam | 2 | 0.0000 | 0.0000 | 1.0000 |
@@ -665,7 +711,7 @@ Together, these extensions would further illuminate how architectural and optimi
 
 ---
 
-## Appendix B — Depth Study Table (from `reports/depth_study.md`)
+## Appendix B — Depth Study Table
 
 | Hidden Layers | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
@@ -675,7 +721,7 @@ Together, these extensions would further illuminate how architectural and optimi
 
 ---
 
-## Appendix C — Width Study Table (from `reports/width_study.md`)
+## Appendix C — Width Study Table
 
 | Hidden Size | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
@@ -686,7 +732,7 @@ Together, these extensions would further illuminate how architectural and optimi
 
 ---
 
-## Appendix D — Activation Study Table (from `reports/activation_study.md`)
+## Appendix D — Activation Study Table
 
 | Activation | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
@@ -696,7 +742,7 @@ Together, these extensions would further illuminate how architectural and optimi
 
 ---
 
-## Appendix E — Optimizer Study Table (from `reports/optimizer_study.md`)
+## Appendix E — Optimizer Study Table
 
 | Optimizer | Dataset(s) | Activation(s) | Optimizer(s) | Mean Test Loss | Mean Test Accuracy |
 | --------- | ---------- | ------------- | ----------- | -------------- | ------------------- |
@@ -705,7 +751,7 @@ Together, these extensions would further illuminate how architectural and optimi
 
 ---
 
-## Appendix F — Connectivity Summary (from `reports/connectivity_study.md`)
+## Appendix F — Connectivity Summary
 
 | Dataset | Architecture | Activation | Optimizer | Num Pairs | Mean Train Barrier | Mean Test Barrier | Max Train Barrier | Max Test Barrier |
 | ------- | ------------ | ---------- | --------- | --------- | ------------------- | ------------------ | ------------------- | ------------------ |
@@ -742,7 +788,7 @@ Together, these extensions would further illuminate how architectural and optimi
 
 ---
 
-## Appendix G — Regularization Study Table (from `reports/regularization_study.md`)
+## Appendix G — Regularization Study Table
 
 Configurations for which we trained models with multiple L2 weight-decay values and generated regularization-sensitive interpolation and random-slice surfaces. For each configuration we list the shared dataset, architecture, activation, optimizer, and the set of weight decays used, along with direct thumbnails of the corresponding 3D interpolation and random-slice surfaces under `reports/figures/.../regularization/`.
 
