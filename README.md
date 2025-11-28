@@ -1,3 +1,5 @@
+Final submission-ready report: see `final_report.pdf` (generated from `final_report.md`).
+
 ## Loss Landscape Geometry Project
 
 Objective: build a small but complete experimentation pipeline to study how the **loss landscape geometry** of MLP classifiers on synthetic datasets relates to **optimization dynamics**, **generalization**, and **architecture / optimizer choices**.  
